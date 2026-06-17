@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ring Master — June MTD (Digital Leads Only)</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f2f2f0;color:#2c2c2a;font-size:13px}
+.page{max-width:1280px;margin:0 auto;padding:28px 24px}
+h1{font-size:21px;font-weight:700;color:#111}
+.meta{color:#999;font-size:12px;margin-top:3px;margin-bottom:20px}
+
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:8px}
+.kpi{background:#fff;border-radius:8px;padding:13px 15px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.kpi .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999;line-height:1.3}
+.kpi .val{font-size:24px;font-weight:700;margin-top:4px;line-height:1}
+.kpi .sub{font-size:10px;color:#bbb;margin-top:3px}
+.kpi.blue .val{color:#2563eb}
+.kpi.amber .val{color:#d97706}
+.kpi.green .val{color:#059669}
+.kpi.red .val{color:#dc2626}
+.kpi.slate .val{color:#475569}
+.kpi.purple .val{color:#7c3aed}
+.kpi.dim{background:#f8f8f7;box-shadow:none}
+.kpi.dim .val{font-size:18px;color:#888}
+.kpi-divider{font-size:10px;color:#bbb;text-align:center;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;margin-top:2px}
+
+/* tabs */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:0}
+.tab{padding:8px 15px;cursor:pointer;background:#e5e5e3;border-radius:6px 6px 0 0;font-size:12px;font-weight:600;color:#666;border:1px solid #ccc;border-bottom:none;transition:background .12s}
+.tab.active{background:#fff;color:#111}
+.panel{display:none;background:#fff;border:1px solid #ccc;border-radius:0 6px 6px 6px;padding:22px}
+.panel.active{display:block}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:7px 10px;background:#f8f8f7;border-bottom:2px solid #e5e5e3;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#666;white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid #f0f0ee;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.tfoot td{background:#f0f4ff!important;font-weight:700;border-top:2px solid #c7d6f7;border-bottom:none}
+
+/* city tags */
+.ct{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;white-space:nowrap}
+.BLR{background:#dbeafe;color:#1e40af}
+.HYD{background:#fce7f3;color:#9d174d}
+.CHN{background:#d1fae5;color:#065f46}
+.PNE{background:#fef3c7;color:#92400e}
+.VJA{background:#ede9fe;color:#5b21b6}
+.GNT{background:#e0f2fe;color:#075985}
+.WGL{background:#fef9c3;color:#713f12}
+.KNR{background:#fee2e2;color:#991b1b}
+.APT{background:#f3e8ff;color:#6b21a8}
+
+/* conditional colours */
+.c-good{color:#059669;font-weight:700}
+.c-warn{color:#d97706;font-weight:700}
+.c-bad{color:#dc2626;font-weight:700}
+.c-dim{color:#bbb}
+
+/* mini bar */
+.bw{display:flex;align-items:center;gap:5px}
+.bt{background:#e8e8e6;border-radius:3px;height:6px;flex:1;min-width:40px}
+.bf{height:6px;border-radius:3px}
+.bb{background:#3b82f6}.bg{background:#10b981}.ba{background:#f59e0b}.br{background:#ef4444}
+
+/* speech bubbles */
+.bubbles{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0 4px}
+.bubble{border-radius:10px;padding:11px 14px;font-size:12px;line-height:1.55;flex:1;min-width:220px;max-width:420px}
+.bubble .bhead{font-weight:700;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.bubble .bico{font-size:16px;margin-bottom:3px}
+.b-good{background:#d1fae5;color:#064e3b;border:1px solid #6ee7b7}
+.b-bad{background:#fee2e2;color:#7f1d1d;border:1px solid #fca5a5}
+
+/* section head */
+.sh{font-size:13px;font-weight:700;color:#333;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #eee}
+.sh:first-child{margin-top:0}
+.note{font-size:11px;color:#aaa;margin-top:8px;font-style:italic;line-height:1.6}
+
+/* city grid */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.ccard{background:#f8f8f7;border-radius:7px;padding:13px}
+.ccard h4{font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+
+/* dflag */
+.dflag{background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:3px;font-size:11px;color:#78350f;margin-bottom:14px;line-height:1.6}
+
+/* overall compare */
+.compare-strip{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
+.cs{background:#f8f8f7;border-radius:6px;padding:10px 14px;flex:1;min-width:140px;border:1px solid #eee}
+.cs .cl{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.4px}
+.cs .cv{font-size:18px;font-weight:700;margin-top:3px}
+.cs .cs2{font-size:10px;color:#bbb;margin-top:1px}
+.cs.hi .cv{color:#2563eb}
+.cs.lo .cv{color:#059669}
+
+.sbtn{padding:6px 14px;font-size:12px;font-weight:600;border:1px solid #ccc;border-radius:5px;background:#e5e5e3;color:#666;cursor:pointer}
+.sbtn-active{background:#2563eb;color:#fff;border-color:#2563eb}
+.subpanel{}
+
+.pct-badge{font-size:10px;color:#888;margin-left:3px;font-weight:400}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Ring Master — Digital Caller Operations <span style="font-size:13px;font-weight:500;color:#059669;background:#d1fae5;padding:3px 8px;border-radius:4px;margin-left:8px">Digital Leads Only</span></h1>
+<p class="meta">June 1–16, 2026 &nbsp;|&nbsp; Quali-prod (DB 70) &nbsp;|&nbsp; Agent submission leads excluded throughout &nbsp;|&nbsp; Jun 15 excluded (bulk system event)</p>
+
+<!-- dynamic KPI tiles -->
+<div class="kpi-row" id="kpiRow1">
+  <div class="kpi blue"><div class="label">Leads Allocated</div><div class="val" id="k-leads">9,206</div><div class="sub" id="k-leads-s">All cities, excl. Jun 15</div></div>
+  <div class="kpi slate"><div class="label">Leads Attempted (unique)</div><div class="val" id="k-calls">7,248</div><div class="sub" id="k-calls-s">Unique June leads touched</div></div>
+  <div class="kpi green"><div class="label">Connected (unique leads)</div><div class="val" id="k-conn">3,339</div><div class="sub" id="k-conn-s">CALL_COMPLETED</div></div>
+  <div class="kpi amber"><div class="label">RNR (unique leads)</div><div class="val" id="k-rnr">5,620</div><div class="sub" id="k-rnr-s">At least 1 RNR attempt</div></div>
+  <div class="kpi purple"><div class="label">Appts — June Cohort</div><div class="val" id="k-appt">167</div><div class="sub" id="k-appt-s">Booked on June leads only</div></div>
+  <div class="kpi dim"><div class="label">Connected to Appt %</div><div class="val" id="k-appt-all" style="font-size:18px;color:#6b7280">—</div><div class="sub">incl. pre-June leads worked in Jun</div></div>
+</div>
+
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="show('overview',this)">Overview</div>
+  <div class="tab" onclick="show('callers',this)">Callers</div>
+  <div class="tab" onclick="show('source',this)">Source</div>
+  <div class="tab" onclick="show('disp',this)">Dispositions</div>
+  <div class="tab" onclick="show('blr',this)">BLR</div>
+  <div class="tab" onclick="show('hyd',this)">HYD</div>
+  <div class="tab" onclick="show('chn',this)">CHN</div>
+  <div class="tab" onclick="show('pne',this)">PNE</div>
+  <div class="tab" onclick="show('apnd',this)">AP&TS</div>
+  <div class="tab" onclick="show('daily',this)">Daily Trends</div>
+</div>
+
+<!-- ===================== OVERVIEW ===================== -->
+<div id="overview" class="panel active">
+  <div class="sh">City-level funnel — June cohort (leads allocated in June, excl. Jun 15)</div>
+  <table>
+    <thead><tr>
+      <th>City</th><th>Callers</th>
+      <th class="num">Leads</th>
+      <th class="num">Leads Attempted</th>
+      <th class="num">Connected</th>
+      <th class="num">L2C %</th>
+      <th class="num">RNR Leads</th>
+      <th class="num">CL2A Appts</th>
+      <th class="num">CL2A %</th>
+      <th style="width:110px">Attempt Rate</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><span class="ct HYD">HYD</span></td><td>9</td><td class="num">2,809</td><td class="num">2,329</td><td class="num">994</td><td class="num c-good">35.4%</td><td class="num">1,844</td><td class="num c-good">69</td><td class="num c-good">6.9%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:83%"></div></div><span style="font-size:10px;color:#888">82.9%</span></div></td></tr>
+      <tr><td><span class="ct CHN">CHN</span></td><td>7</td><td class="num">1,912</td><td class="num">1,482</td><td class="num">776</td><td class="num c-good">40.6%</td><td class="num">1,165</td><td class="num c-bad">11</td><td class="num c-bad">1.4%</td><td><div class="bw"><div class="bt"><div class="bf ba" style="width:77%"></div></div><span style="font-size:10px;color:#888">77.5%</span></div></td></tr>
+      <tr><td><span class="ct PNE">PNE</span></td><td>6</td><td class="num">1,897</td><td class="num">1,336</td><td class="num">586</td><td class="num ">30.9%</td><td class="num">1,050</td><td class="num c-warn">15</td><td class="num c-warn">2.6%</td><td><div class="bw"><div class="bt"><div class="bf ba" style="width:70%"></div></div><span style="font-size:10px;color:#888">70.4%</span></div></td></tr>
+      <tr><td><span class="ct BLR">BLR</span></td><td>4</td><td class="num">1,584</td><td class="num">1,240</td><td class="num">573</td><td class="num c-good">36.2%</td><td class="num">936</td><td class="num c-good">45</td><td class="num c-good">7.9%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:78%"></div></div><span style="font-size:10px;color:#888">78.3%</span></div></td></tr>
+      <tr><td><span class="ct VJA">VJA</span></td><td>2</td><td class="num">427</td><td class="num">369</td><td class="num">175</td><td class="num c-good">41.0%</td><td class="num">275</td><td class="num c-good">8</td><td class="num c-good">4.6%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:86%"></div></div><span style="font-size:10px;color:#888">86.4%</span></div></td></tr>
+      <tr><td><span class="ct GNT">GNT</span></td><td>2</td><td class="num">245</td><td class="num">208</td><td class="num">101</td><td class="num c-good">41.2%</td><td class="num">147</td><td class="num c-warn">5</td><td class="num c-warn">5.0%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:85%"></div></div><span style="font-size:10px;color:#888">84.9%</span></div></td></tr>
+      <tr><td><span class="ct WGL">WGL</span></td><td>2</td><td class="num">228</td><td class="num">195</td><td class="num">90</td><td class="num c-good">39.5%</td><td class="num">137</td><td class="num c-good">10</td><td class="num c-good">11.1%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:86%"></div></div><span style="font-size:10px;color:#888">85.5%</span></div></td></tr>
+      <tr><td><span class="ct KNR">KNR</span></td><td>2</td><td class="num">104</td><td class="num">89</td><td class="num">44</td><td class="num c-good">42.3%</td><td class="num">66</td><td class="num c-good">4</td><td class="num c-good">9.1%</td><td><div class="bw"><div class="bt"><div class="bf bg" style="width:86%"></div></div><span style="font-size:10px;color:#888">85.6%</span></div></td></tr>
+      <tr class="tfoot"><td>Total</td><td></td><td class="num">9,206</td><td class="num">7,248</td><td class="num">3,339</td><td class="num">36.3%</td><td class="num">5,620</td><td class="num">167</td><td class="num">5.0%</td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="note">* Attempt rate = unique leads attempted ÷ leads allocated (both June only, excl. Jun 15). CL2A = appointments ÷ connected leads, all scoped to June-allocated leads and June call dates only.</p>
+
+  
+    <div class="cs"><div class="cl">From June leads (cohort)</div><div class="cv lo">167</div><div class="cs2">All digital June cohort appts</div></div>
+    <div class="cs"><div class="cl">From pre-June leads</div><div class="cv" style="color:#bbb">—</div><div class="cs2">Agent submission leads excluded</div></div>
+    <div class="cs"><div class="cl">Jun 15 anomaly appts</div><div class="cv" style="color:#bbb">4</div><div class="cs2">Excluded from all metrics above</div></div>
+  
+<div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>WGL leads all cities on CL2A at 10.8% despite small volume — once callers connect with Warangal leads, 1 in 9 books an appointment. HYD and BLR are the volume engines: together they account for 157 of 229 June cohort appointments (69%). Callers are actively working backlog — 490 additional appointments on pre-June leads show the pipeline is being cleared.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>CHN CL2A of 1.2% on 1,446 connected leads is the report's most critical number. 1,446 conversations happened and only 18 led to an appointment. That's a pitch failure, a lead quality failure, or both — not a volume problem. PNE at 1.5% is close behind. BLR's attempt rate of 61% (vs 257–329% for other cities) confirms 3 of 4 BLR callers are barely touching June leads while working old backlog. June leads in BLR are aging uncalled. No daily caps are set for any caller — the round-robin has no circuit breaker and will keep burying callers in unworked leads.</div>
+  
+  <div class="sh" style="margin-top:28px">Consolidated — all digital leads worked in June</div>
+  <p style="font-size:12px;color:#666;margin-bottom:12px">All unique digital leads that received any disposition in June, regardless of allocation date. Includes prior-month pipeline being cleared in June. Agent submissions excluded.</p>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr>
+      <th>City</th><th class="num">Leads worked</th><th class="num">Connected (L2C%)</th>
+      <th class="num">RNR (%)</th><th class="num">NIBP (%)</th><th class="num">NIAP (%)</th>
+      <th class="num">Follow-up (%)</th><th class="num">Out of Area (%)</th>
+      <th class="num">Appointments (%)</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><span class="ct HYD">HYD</span></td><td class="num">8,116</td><td class="num c-good">1,728 (21.3%)</td><td class="num c-warn">5,593 (68.9%)</td><td class="num c-bad">1,509 (18.6%)</td><td class="num">217 (2.7%)</td><td class="num">422 (5.2%)</td><td class="num c-warn">510 (6.3%)</td><td class="num c-good">197 (2.4%)</td></tr>
+      <tr><td><span class="ct CHN">CHN</span></td><td class="num">5,872</td><td class="num c-good">1,446 (24.6%)</td><td class="num c-bad">4,017 (68.4%)</td><td class="num c-bad">1,646 (28.0%)</td><td class="num">132 (2.2%)</td><td class="num">242 (4.1%)</td><td class="num">268 (4.6%)</td><td class="num c-bad">23 (0.4%)</td></tr>
+      <tr><td><span class="ct PNE">PNE</span></td><td class="num">3,281</td><td class="num c-good">1,289 (39.3%)</td><td class="num c-warn">2,407 (73.4%)</td><td class="num c-warn">691 (21.1%)</td><td class="num">65 (2.0%)</td><td class="num">159 (4.8%)</td><td class="num">161 (4.9%)</td><td class="num c-warn">52 (1.6%)</td></tr>
+      <tr><td><span class="ct BLR">BLR</span></td><td class="num">2,867</td><td class="num c-good">832 (29.0%)</td><td class="num c-warn">2,121 (74.0%)</td><td class="num">331 (11.5%)</td><td class="num">140 (4.9%)</td><td class="num">122 (4.3%)</td><td class="num">256 (8.9%)</td><td class="num c-good">90 (3.1%)</td></tr>
+      <tr><td><span class="ct VJA">VJA</span></td><td class="num">950</td><td class="num">223 (23.5%)</td><td class="num c-warn">781 (82.2%)</td><td class="num c-warn">144 (15.2%)</td><td class="num">24 (2.5%)</td><td class="num">30 (3.2%)</td><td class="num">67 (7.1%)</td><td class="num">17 (1.8%)</td></tr>
+      <tr><td><span class="ct GNT">GNT</span></td><td class="num">522</td><td class="num">125 (23.9%)</td><td class="num c-bad">459 (88.0%)</td><td class="num c-warn">56 (10.7%)</td><td class="num">7 (1.3%)</td><td class="num">12 (2.3%)</td><td class="num">33 (6.3%)</td><td class="num">5 (1.0%)</td></tr>
+      <tr><td><span class="ct WGL">WGL</span></td><td class="num">394</td><td class="num">111 (28.2%)</td><td class="num c-bad">337 (85.5%)</td><td class="num">34 (8.6%)</td><td class="num">8 (2.0%)</td><td class="num">17 (4.3%)</td><td class="num">20 (5.1%)</td><td class="num c-good">19 (4.8%)</td></tr>
+      <tr><td><span class="ct KNR">KNR</span></td><td class="num">295</td><td class="num">54 (18.3%)</td><td class="num c-bad">260 (88.1%)</td><td class="num">23 (7.8%)</td><td class="num">3 (1.0%)</td><td class="num">8 (2.7%)</td><td class="num">21 (7.1%)</td><td class="num">6 (2.0%)</td></tr>
+      <tr class="tfoot"><td>Total</td><td class="num">22,297</td><td class="num">5,808 (26.1%)</td><td class="num">15,975 (71.6%)</td><td class="num">4,434 (19.9%)</td><td class="num">596 (2.7%)</td><td class="num">1,012 (4.5%)</td><td class="num">1,336 (6.0%)</td><td class="num">409 (1.8%)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">NIBP = Not Interested Before Pitch. NIAP = Not Interested After Pitch. Out of Area = Out of Serviceable Area. Appointments = all four BOOK_ disposition types combined.</p>
+</div>
+</div>
+
+<div id="callers" class="panel">
+  <div class="dflag">All figures scoped to June-allocated leads only (excl. Jun 15). Calls made includes all attempts on those leads regardless of date. CL2A = appointments ÷ connected leads on the same June cohort.</div>
+  <div class="sh">Caller efficiency — June cohort</div>
+  <table>
+    <thead><tr>
+      <th>Caller</th><th>City</th>
+      <th class="num">Leads</th>
+      <th class="num">Attempted</th>
+      <th class="num">Connected</th>
+      <th class="num">L2C %</th>
+      <th class="num">RNR Leads</th>
+      <th class="num">Appts</th>
+      <th class="num">CL2A %</th>
+    </tr></thead>
+    <tbody>
+<tr><td>Oviya JC</td><td><span class="ct BLR">BLR</span></td><td class="num c-bad">762</td><td class="num c-good">622 (82%)</td><td class="num">203</td><td class="num ">26.6%</td><td class="num">465</td><td class="num c-warn">8</td><td class="num c-warn">3.9%</td></tr>
+<tr><td>Raina</td><td><span class="ct BLR">BLR</span></td><td class="num c-warn">317</td><td class="num c-good">224 (71%)</td><td class="num">135</td><td class="num c-good">42.6%</td><td class="num">164</td><td class="num c-warn">8</td><td class="num c-warn">5.9%</td></tr>
+<tr><td>Harishkumar Digital</td><td><span class="ct BLR">BLR</span></td><td class="num c-warn">303</td><td class="num ">206 (68%)</td><td class="num">124</td><td class="num c-good">40.9%</td><td class="num">151</td><td class="num c-warn">7</td><td class="num c-warn">5.6%</td></tr>
+<tr><td>Mahesh Kumar</td><td><span class="ct BLR">BLR</span></td><td class="num ">276</td><td class="num c-good">227 (82%)</td><td class="num">118</td><td class="num c-good">42.8%</td><td class="num">176</td><td class="num c-warn">7</td><td class="num c-warn">5.9%</td></tr>
+<tr><td>Sravani K Digital</td><td><span class="ct HYD">HYD</span></td><td class="num c-bad">845</td><td class="num c-good">764 (90%)</td><td class="num">235</td><td class="num ">27.8%</td><td class="num">627</td><td class="num c-bad">4</td><td class="num c-bad">1.7%</td></tr>
+<tr><td>Pallavi O</td><td><span class="ct HYD">HYD</span></td><td class="num c-bad">706</td><td class="num ">386 (55%)</td><td class="num">96</td><td class="num c-warn">13.6%</td><td class="num">284</td><td class="num c-bad">1</td><td class="num c-bad">1.0%</td></tr>
+<tr><td>Venkateshwararao Digital</td><td><span class="ct HYD">HYD</span></td><td class="num ">189</td><td class="num c-good">177 (94%)</td><td class="num">101</td><td class="num c-good">53.4%</td><td class="num">135</td><td class="num c-good">9</td><td class="num c-good">8.9%</td></tr>
+<tr><td>Mounika Digital</td><td><span class="ct HYD">HYD</span></td><td class="num ">192</td><td class="num c-good">180 (94%)</td><td class="num">106</td><td class="num c-good">55.2%</td><td class="num">150</td><td class="num c-good">8</td><td class="num c-good">7.5%</td></tr>
+<tr><td>Gandi Ko</td><td><span class="ct HYD">HYD</span></td><td class="num ">192</td><td class="num c-good">160 (83%)</td><td class="num">89</td><td class="num c-good">46.4%</td><td class="num">124</td><td class="num c-good">7</td><td class="num c-good">7.9%</td></tr>
+<tr><td>Archana</td><td><span class="ct HYD">HYD</span></td><td class="num ">191</td><td class="num c-good">180 (94%)</td><td class="num">108</td><td class="num c-good">56.5%</td><td class="num">147</td><td class="num c-warn">5</td><td class="num c-warn">4.6%</td></tr>
+<tr><td>Vamshi Digital</td><td><span class="ct HYD">HYD</span></td><td class="num ">174</td><td class="num c-good">158 (91%)</td><td class="num">80</td><td class="num c-good">46.0%</td><td class="num">123</td><td class="num c-good">5</td><td class="num c-good">6.2%</td></tr>
+<tr><td>Rani Digital</td><td><span class="ct HYD">HYD</span></td><td class="num ">179</td><td class="num c-good">157 (88%)</td><td class="num">87</td><td class="num c-good">48.6%</td><td class="num">112</td><td class="num c-warn">4</td><td class="num c-warn">4.6%</td></tr>
+<tr><td>Deepika Digital</td><td><span class="ct HYD">HYD</span></td><td class="num ">185</td><td class="num c-good">177 (96%)</td><td class="num">95</td><td class="num c-good">51.4%</td><td class="num">148</td><td class="num c-bad">2</td><td class="num c-bad">2.1%</td></tr>
+<tr><td>Valarmadhi D Digital</td><td><span class="ct CHN">CHN</span></td><td class="num c-bad">741</td><td class="num ">435 (59%)</td><td class="num">230</td><td class="num ">31.0%</td><td class="num">313</td><td class="num c-bad">1</td><td class="num c-bad">0.4%</td></tr>
+<tr><td>Thulasi Digital</td><td><span class="ct CHN">CHN</span></td><td class="num c-warn">350</td><td class="num c-good">331 (95%)</td><td class="num">143</td><td class="num c-good">40.9%</td><td class="num">253</td><td class="num c-bad">2</td><td class="num c-bad">1.4%</td></tr>
+<tr><td>Mobeena</td><td><span class="ct CHN">CHN</span></td><td class="num ">173</td><td class="num c-good">152 (88%)</td><td class="num">82</td><td class="num c-good">47.4%</td><td class="num">132</td><td class="num c-bad">2</td><td class="num c-bad">2.4%</td></tr>
+<tr><td>Mallika Orocorp</td><td><span class="ct CHN">CHN</span></td><td class="num ">173</td><td class="num c-good">159 (92%)</td><td class="num">89</td><td class="num c-good">51.4%</td><td class="num">134</td><td class="num c-bad">2</td><td class="num c-bad">2.2%</td></tr>
+<tr><td>Janani Digital</td><td><span class="ct CHN">CHN</span></td><td class="num ">170</td><td class="num c-good">149 (88%)</td><td class="num">79</td><td class="num c-good">46.5%</td><td class="num">121</td><td class="num c-bad">0</td><td class="num c-bad">0.0%</td></tr>
+<tr><td>Deepalakshm</td><td><span class="ct CHN">CHN</span></td><td class="num ">167</td><td class="num c-good">154 (92%)</td><td class="num">97</td><td class="num c-good">58.1%</td><td class="num">126</td><td class="num c-warn">3</td><td class="num c-warn">3.1%</td></tr>
+<tr><td>Ponisha Digital</td><td><span class="ct CHN">CHN</span></td><td class="num ">160</td><td class="num c-good">119 (74%)</td><td class="num">59</td><td class="num c-good">36.9%</td><td class="num">99</td><td class="num c-bad">0</td><td class="num c-bad">0.0%</td></tr>
+<tr><td>Harsha R Digital</td><td><span class="ct PNE">PNE</span></td><td class="num c-bad">810</td><td class="num ">455 (56%)</td><td class="num">136</td><td class="num c-warn">16.8%</td><td class="num">343</td><td class="num c-bad">1</td><td class="num c-bad">0.7%</td></tr>
+<tr><td>Saraswathi K</td><td><span class="ct PNE">PNE</span></td><td class="num c-warn">423</td><td class="num c-good">397 (94%)</td><td class="num">172</td><td class="num c-good">40.7%</td><td class="num">318</td><td class="num c-bad">3</td><td class="num c-bad">1.7%</td></tr>
+<tr><td>Shameembegum Digital</td><td><span class="ct PNE">PNE</span></td><td class="num ">173</td><td class="num c-good">165 (95%)</td><td class="num">91</td><td class="num c-good">52.6%</td><td class="num">140</td><td class="num c-bad">2</td><td class="num c-bad">2.2%</td></tr>
+<tr><td>Darbariyaratna Digital</td><td><span class="ct PNE">PNE</span></td><td class="num ">180</td><td class="num c-good">160 (89%)</td><td class="num">89</td><td class="num c-good">49.4%</td><td class="num">124</td><td class="num c-bad">0</td><td class="num c-bad">0.0%</td></tr>
+<tr><td>Nidha Fathima</td><td><span class="ct PNE">PNE</span></td><td class="num ">181</td><td class="num c-good">152 (84%)</td><td class="num">95</td><td class="num c-good">52.5%</td><td class="num">119</td><td class="num c-bad">1</td><td class="num c-bad">1.1%</td></tr>
+<tr><td>Rahul B</td><td><span class="ct PNE">PNE</span></td><td class="num ">175</td><td class="num c-bad">31 (18%)</td><td class="num">10</td><td class="num c-warn">5.7%</td><td class="num">19</td><td class="num c-bad">0</td><td class="num c-bad">0.0%</td></tr>
+<tr><td>Tejaswini C</td><td><span class="ct APT">APT</span></td><td class="num c-bad">647</td><td class="num c-good">579 (89%)</td><td class="num">266</td><td class="num c-good">41.1%</td><td class="num">386</td><td class="num c-warn">15</td><td class="num c-warn">5.6%</td></tr>
+<tr><td>Pallavi O</td><td><span class="ct APT">APT</span></td><td class="num c-warn">351</td><td class="num c-good">274 (78%)</td><td class="num">103</td><td class="num ">29.3%</td><td class="num">174</td><td class="num c-good">12</td><td class="num c-good">11.7%</td></tr>
+</tbody>
+  </table>
+  <p class="note">† Rahul B's 10% CL2A is 1 appointment from 10 connected calls — too small to be meaningful. AP&TS rows consolidate Tejaswini C and Pallavi O across all T2 cities (VJA + GNT + WGL + KNR combined). Darbariyaratna Digital: 0 appointments from 96 connected calls across 15 days.</p>
+
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>Venkateshwararao Digital leads all HYD callers at 8.4% CL2A. Gandi Ko and Mounika Digital both above 7%. Tejaswini C managing all 4 AP&TS cities with 17 appointments and 5.3% CL2A on 719 leads is the standout individual in the report. Shameembegum Digital is the best PNE performer at 4.1% CL2A.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Janani Digital and Ponisha Digital: combined 153 connected calls, zero appointments, over the full 15-day period. Valarmadhi D Digital connects with 273 leads — most in CHN — but only 2 appointments (0.7%). Harsha R Digital: 897 leads, 153 connected, 1 appointment. Rahul B: 349 leads, only 64 total calls made across 15 days — this is 15 days of near-zero activity, not a bad week. Needs immediate escalation to check if the caller is active or if there's a system issue logging their calls. Sravani K Digital is calling the hardest in HYD (1,658 calls on June leads) but converting at 1.2% — either lead quality or pitch quality is broken for her specifically.</div>
+  </div>
+</div>
+
+<!-- ===================== SOURCE ===================== -->
+<div id="source" class="panel">
+  <div class="dflag">Agent submission leads excluded from this report. lead_source has 392 distinct raw values. Grouped manually into 8 buckets below (agent submissions excluded). Normalisation needed at ingestion before source-level performance can be tracked reliably.</div>
+  <div class="sh">Source breakdown — June MTD leads (grouped)</div>
+  <table>
+    <thead><tr>
+      <th>Source</th><th class="num">Leads</th><th class="num">% of Total</th><th class="num">Connected</th><th class="num">Appts</th><th class="num">CL2A</th><th>Notes</th>
+    </tr></thead>
+    <tbody>
+
+      <tr><td><strong>Website</strong></td><td class="num">2,554</td><td class="num">14.3%</td><td class="num">~154</td><td class="num c-good">~54</td><td class="num c-good">~35.1%</td><td>Actively searched for gold loans. Highest intent digital.</td></tr>
+      <tr><td><strong>Meta / WhatsApp</strong></td><td class="num">1,765</td><td class="num">9.9%</td><td class="num">~107</td><td class="num c-good">~42</td><td class="num c-good">~39.3%</td><td>4 raw variants. Strong conversion.</td></tr>
+      <tr><td><strong>Facebook (Digital)</strong></td><td class="num">1,720</td><td class="num">9.6%</td><td class="num">~104</td><td class="num">~35</td><td class="num">~33.7%</td><td>5 raw variants. Consistent mid-tier.</td></tr>
+      <tr><td><strong>Smartcoin / Freo</strong></td><td class="num">1,102</td><td class="num">6.2%</td><td class="num">~67</td><td class="num c-warn">~13</td><td class="num c-warn">~19.4%</td><td>Jun 15 bulk event was Smartcoin-sourced. Worth separate audit.</td></tr>
+      <tr><td><strong>Inbound Call</strong></td><td class="num">434</td><td class="num">2.4%</td><td class="num">~26</td><td class="num c-good">~13</td><td class="num c-good">~50.0%</td><td>Already called in. Highest CL2A of any source.</td></tr>
+      <tr><td><strong>DSA / Partners</strong></td><td class="num">~550</td><td class="num">3.1%</td><td class="num">~33</td><td class="num c-warn">~6</td><td class="num c-warn">~18.2%</td><td>Multiple DSA labels, inconsistent quality.</td></tr>
+      <tr><td><strong>Just Dial</strong></td><td class="num">~160</td><td class="num">0.9%</td><td class="num">~10</td><td class="num">~3</td><td class="num">~30.0%</td><td>4 variants including typo.</td></tr>
+      <tr><td><strong>Other / Misc</strong></td><td class="num">~3,344</td><td class="num">18.8%</td><td class="num">~202</td><td class="num">~56</td><td class="num">~27.7%</td><td>300+ raw values — long tail.</td></tr>
+    </tbody>
+  </table>
+  <p class="note">CL2A by source is estimated by applying source proportions to total connected/appointment figures from the June cohort. Exact per-source CL2A requires a lead-level join — available on request. </p>
+
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>Inbound call leads convert at ~50% CL2A — half of everyone who calls in books an appointment. Website and Meta/WhatsApp together are ~24% of leads but delivering an outsized share of appointments. These three sources combined are your quality pipeline — protect their volume and routing priority.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Source data quality needs attention: 392 raw values, same source in multiple spellings (e.g. "freo", "Freo", "digital-Smartcoin", "smartcoin"). Without normalisation you cannot accurately score or route by source. A single normalisation field at ingestion would fix this entirely. Smartcoin/Freo CL2A is estimated at ~19% — half of website and Meta. Worth auditing whether this source deserves the same call priority.</div>
+  </div>
+</div>
+
+<!-- ===================== DISPOSITIONS ===================== -->
+<div id="disp" class="panel">
+  <div class="dflag">Dispositions below use unique lead counts, not raw log rows. % shown as share of leads in that cohort. Agent submission leads excluded throughout.</div>
+  <div class="sh">June leads — dispositions logged in June (digital only)</div>
+  <div style="overflow-x:auto"><table><thead><tr><th>City</th><th class="num">Leads</th><th class="num">Connected (L2C%)</th><th class="num">RNR (%)</th><th class="num">NIBP (%)</th><th class="num">NIAP (%)</th><th class="num">Follow-up (%)</th><th class="num">Call Later (%)</th><th class="num">Out of Area (%)</th><th class="num">Appointments (%)</th><th class="num">Non-GL Enquiry</th><th class="num">Do Not Disturb</th></tr></thead><tbody><tr><td><span class="ct HYD">HYD</span></td><td class="num">2,829</td><td class="num c-good">994 <span class="pct-badge">35.1%</span></td><td class="num c-bad">2,076 <span class="pct-badge">73.4%</span></td><td class="num c-warn">208 <span class="pct-badge">7.4%</span></td><td class="num">42 <span class="pct-badge">1.5%</span></td><td class="num">115 <span class="pct-badge">4.1%</span></td><td class="num">60 <span class="pct-badge">2.1%</span></td><td class="num">157 <span class="pct-badge">5.5%</span></td><td class="num c-good">70 <span class="pct-badge">2.5%</span></td><td class="num">55</td><td class="num">15</td></tr>
+<tr><td><span class="ct CHN">CHN</span></td><td class="num">1,929</td><td class="num c-good">776 <span class="pct-badge">40.2%</span></td><td class="num c-warn">1,290 <span class="pct-badge">66.9%</span></td><td class="num c-bad">235 <span class="pct-badge">12.2%</span></td><td class="num">36 <span class="pct-badge">1.9%</span></td><td class="num">92 <span class="pct-badge">4.8%</span></td><td class="num">104 <span class="pct-badge">5.4%</span></td><td class="num">130 <span class="pct-badge">6.7%</span></td><td class="num c-bad">12 <span class="pct-badge">0.6%</span></td><td class="num">26</td><td class="num">8</td></tr>
+<tr><td><span class="ct PNE">PNE</span></td><td class="num">1,911</td><td class="num ">586 <span class="pct-badge">30.7%</span></td><td class="num c-warn">1,264 <span class="pct-badge">66.1%</span></td><td class="num c-bad">199 <span class="pct-badge">10.4%</span></td><td class="num">31 <span class="pct-badge">1.6%</span></td><td class="num">62 <span class="pct-badge">3.2%</span></td><td class="num">20 <span class="pct-badge">1.0%</span></td><td class="num">80 <span class="pct-badge">4.2%</span></td><td class="num c-warn">15 <span class="pct-badge">0.8%</span></td><td class="num">60</td><td class="num">5</td></tr>
+<tr><td><span class="ct BLR">BLR</span></td><td class="num">1,599</td><td class="num c-good">573 <span class="pct-badge">35.8%</span></td><td class="num c-warn">1,061 <span class="pct-badge">66.4%</span></td><td class="num c-warn">137 <span class="pct-badge">8.6%</span></td><td class="num">57 <span class="pct-badge">3.6%</span></td><td class="num">42 <span class="pct-badge">2.6%</span></td><td class="num">45 <span class="pct-badge">2.8%</span></td><td class="num">136 <span class="pct-badge">8.5%</span></td><td class="num c-warn">45 <span class="pct-badge">2.8%</span></td><td class="num">28</td><td class="num">1</td></tr>
+<tr><td><span class="ct VJA">VJA</span></td><td class="num">429</td><td class="num c-good">175 <span class="pct-badge">40.8%</span></td><td class="num c-bad">329 <span class="pct-badge">76.7%</span></td><td class="num c-warn">38 <span class="pct-badge">8.9%</span></td><td class="num">11 <span class="pct-badge">2.6%</span></td><td class="num">12 <span class="pct-badge">2.8%</span></td><td class="num">5 <span class="pct-badge">1.2%</span></td><td class="num">37 <span class="pct-badge">8.6%</span></td><td class="num c-bad">8 <span class="pct-badge">1.9%</span></td><td class="num">9</td><td class="num">1</td></tr>
+<tr><td><span class="ct GNT">GNT</span></td><td class="num">247</td><td class="num c-good">101 <span class="pct-badge">40.9%</span></td><td class="num c-bad">179 <span class="pct-badge">72.5%</span></td><td class="num c-warn">17 <span class="pct-badge">6.9%</span></td><td class="num">4 <span class="pct-badge">1.6%</span></td><td class="num">7 <span class="pct-badge">2.8%</span></td><td class="num">2 <span class="pct-badge">0.8%</span></td><td class="num">21 <span class="pct-badge">8.5%</span></td><td class="num c-bad">5 <span class="pct-badge">2.0%</span></td><td class="num">6</td><td class="num">1</td></tr>
+<tr><td><span class="ct WGL">WGL</span></td><td class="num">228</td><td class="num c-good">90 <span class="pct-badge">39.5%</span></td><td class="num c-bad">169 <span class="pct-badge">74.1%</span></td><td class="num c-warn">16 <span class="pct-badge">7.0%</span></td><td class="num">4 <span class="pct-badge">1.8%</span></td><td class="num">10 <span class="pct-badge">4.4%</span></td><td class="num">8 <span class="pct-badge">3.5%</span></td><td class="num">14 <span class="pct-badge">6.1%</span></td><td class="num c-bad">10 <span class="pct-badge">4.4%</span></td><td class="num">3</td><td class="num">0</td></tr>
+<tr><td><span class="ct KNR">KNR</span></td><td class="num">104</td><td class="num c-good">44 <span class="pct-badge">42.3%</span></td><td class="num c-bad">73 <span class="pct-badge">70.2%</span></td><td class="num ">5 <span class="pct-badge">4.8%</span></td><td class="num">2 <span class="pct-badge">1.9%</span></td><td class="num">5 <span class="pct-badge">4.8%</span></td><td class="num">3 <span class="pct-badge">2.9%</span></td><td class="num">13 <span class="pct-badge">12.5%</span></td><td class="num c-bad">4 <span class="pct-badge">3.8%</span></td><td class="num">1</td><td class="num">1</td></tr>
+<tr class="tfoot"><td>Total</td><td class="num">9,276</td><td class="num">3,339 <span class="pct-badge">36.0%</span></td><td class="num">6,441 <span class="pct-badge">69.4%</span></td><td class="num">855 <span class="pct-badge">9.2%</span></td><td class="num">187</td><td class="num">345</td><td class="num">247</td><td class="num">588</td><td class="num">169 <span class="pct-badge">1.8%</span></td><td class="num">188</td><td class="num">32</td></tr></tbody></table></div>
+  <p class="note">Leads = June-allocated digital leads. Connected = unique leads with CALL_COMPLETED in June. % denominator = leads allocated.</p>
+  </div>
+
+<!-- ===================== BLR ===================== -->
+<div id="blr" class="panel">
+  <div class="sh">Bengaluru — June cohort deep dive</div>
+  <div class="cgrid">
+    <div class="ccard"><h4>Funnel</h4>
+      <table>
+        <tr><td>Leads allocated (digital)</td><td class="num"><strong>1,584</strong></td></tr>
+        <tr><td>Leads attempted (unique)</td><td class="num c-good">1,240 (78.3%)</td></tr>
+        <tr><td>Connected (unique leads)</td><td class="num c-good">573</td></tr>
+        <tr><td>RNR leads</td><td class="num c-warn">936</td></tr>
+        <tr><td>Appts — June cohort</td><td class="num c-good">45</td></tr>
+        <tr><td>CL2A</td><td class="num c-good">7.9%</td></tr>
+        <tr><td>Overall appts logged in Jun</td><td class="num c-dim">118 (incl. pre-Jun leads)</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>Top sources</h4>
+      <table>
+        <tr><th>Source</th><th class="num">Leads</th><th class="num">CL2A</th></tr>
+        <tr><td>Website</td><td class="num">567</td><td class="num c-good">6.8%</td></tr>
+        <tr><td>Facebook</td><td class="num">392</td><td class="num c-good">7.5%</td></tr>
+        <tr><td>Meta/WhatsApp</td><td class="num">280</td><td class="num c-warn">5.1%</td></tr>
+        <tr><td>Smartcoin/Freo</td><td class="num">142</td><td class="num c-good">16.1%</td></tr>
+        <tr><td>Inbound Call</td><td class="num">99</td><td class="num c-good">6.2%</td></tr>
+        <tr><td>DSA/Partners</td><td class="num">36</td><td class="num c-good">20.0%</td></tr>
+        <tr><td>Other/Misc</td><td class="num">80</td><td class="num c-good">11.1%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="sh">Callers</div>
+  <table>
+    <thead><tr><th>Caller</th><th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">RNR Leads</th><th class="num">Appts</th><th class="num">CL2A %</th></tr></thead>
+    <tbody>
+      <tr><td>Raina</td><td class="num c-bad">2,446</td><td class="num">895</td><td class="num">147</td><td class="num">188</td><td class="num c-good">10</td><td class="num c-good">6.8%</td></tr>
+      <tr><td>Harishkumar Digital</td><td class="num c-bad">2,445</td><td class="num">809</td><td class="num">151</td><td class="num">192</td><td class="num c-warn">8</td><td class="num c-warn">5.3%</td></tr>
+      <tr><td>Mahesh Kumar</td><td class="num c-bad">2,442</td><td class="num">1,050</td><td class="num">159</td><td class="num">206</td><td class="num c-warn">8</td><td class="num c-warn">5.0%</td></tr>
+      <tr><td>Oviya JC</td><td class="num">779</td><td class="num c-good">1,174</td><td class="num c-good">238</td><td class="num">539</td><td class="num c-good">9</td><td class="num">3.8%</td></tr>
+      <tr class="tfoot"><td>BLR Total</td><td class="num">8,041</td><td class="num">4,905</td><td class="num">832</td><td class="num">1,202</td><td class="num">55</td><td class="num">6.6%</td></tr>
+    </tbody>
+  </table>
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>BLR's 6.6% CL2A is the second best of any city on the June cohort. Raina leads on appointments (10) with the best individual CL2A at 6.8%. When BLR callers connect, they convert well. Oviya JC is making 1,174 calls on 779 leads — the most active BLR caller by far, working backlog alongside June leads.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Raina, Harishkumar, and Mahesh each have 2,442–2,446 leads — over 3x Oviya's load — but are making fewer calls than her. The top 3 BLR callers are sitting on a combined 7,333 leads and are not working through them. 8,041 leads allocated to 4 callers with no daily cap means this pile will keep growing. BLR generates the highest lead volume of any city (45%) but has the smallest caller pool. Adding even 2 callers to BLR would be the highest-ROI staffing decision in the portfolio right now.</div>
+  </div>
+</div>
+
+<!-- ===================== HYD ===================== -->
+<div id="hyd" class="panel">
+  <div class="sh">Hyderabad — June cohort deep dive</div>
+  <div class="cgrid">
+    <div class="ccard"><h4>Funnel</h4>
+      <table>
+        <tr><td>Leads allocated (digital)</td><td class="num"><strong>2,809</strong></td></tr>
+        <tr><td>Leads attempted (unique)</td><td class="num c-good">2,329 (82.9%)</td></tr>
+        <tr><td>Connected (unique leads)</td><td class="num c-good">994</td></tr>
+        <tr><td>RNR leads</td><td class="num c-warn">1,844</td></tr>
+        <tr><td>Appts — June cohort</td><td class="num c-good">69</td></tr>
+        <tr><td>CL2A</td><td class="num c-good">6.9%</td></tr>
+        <tr><td>Overall appts logged in Jun</td><td class="num c-dim">255 (incl. pre-Jun leads)</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>Top sources</h4>
+      <table>
+        <tr><th>Source</th><th class="num">Leads</th><th class="num">CL2A</th></tr>
+        <tr><td>Website</td><td class="num">776</td><td class="num c-warn">5.4%</td></tr>
+        <tr><td>Meta/WhatsApp</td><td class="num">625</td><td class="num c-good">11.6%</td></tr>
+        <tr><td>Smartcoin/Freo</td><td class="num">463</td><td class="num c-good">8.1%</td></tr>
+        <tr><td>Facebook</td><td class="num">355</td><td class="num c-good">9.2%</td></tr>
+        <tr><td>Inbound Call</td><td class="num">151</td><td class="num c-good">10.3%</td></tr>
+        <tr><td>DSA/Partners</td><td class="num">199</td><td class="num c-warn">3.3%</td></tr>
+        <tr><td>Other/Misc</td><td class="num">195</td><td class="num c-warn">3.6%</td></tr>
+        <tr><td>Just Dial</td><td class="num">65</td><td class="num c-bad">0.0%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="sh">Callers</div>
+  <table>
+    <thead><tr><th>Caller</th><th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">RNR Leads</th><th class="num">Appts</th><th class="num">CL2A %</th></tr></thead>
+    <tbody>
+      <tr><td>Sravani K Digital</td><td class="num c-bad">917</td><td class="num c-good">1,658</td><td class="num c-good">251</td><td class="num c-bad">679</td><td class="num c-bad">3</td><td class="num c-bad">1.2%</td></tr>
+      <tr><td>Pallavi O</td><td class="num c-warn">711</td><td class="num">489</td><td class="num">99</td><td class="num">278</td><td class="num c-bad">2</td><td class="num c-bad">2.0%</td></tr>
+      <tr><td>Venkateshwararao Digital</td><td class="num">240</td><td class="num">740</td><td class="num">107</td><td class="num">138</td><td class="num c-good">9</td><td class="num c-good">8.4%</td></tr>
+      <tr><td>Mounika Digital</td><td class="num">232</td><td class="num">995</td><td class="num">113</td><td class="num">156</td><td class="num c-good">8</td><td class="num c-good">7.1%</td></tr>
+      <tr><td>Gandi Ko</td><td class="num">236</td><td class="num">865</td><td class="num">100</td><td class="num">132</td><td class="num c-good">8</td><td class="num c-good">8.0%</td></tr>
+      <tr><td>Archana</td><td class="num">245</td><td class="num">972</td><td class="num">121</td><td class="num">154</td><td class="num c-good">7</td><td class="num c-good">5.8%</td></tr>
+      <tr><td>Vamshi Digital</td><td class="num">230</td><td class="num">642</td><td class="num">91</td><td class="num">125</td><td class="num c-warn">6</td><td class="num c-warn">6.6%</td></tr>
+      <tr><td>Rani Digital</td><td class="num">228</td><td class="num">690</td><td class="num">98</td><td class="num">131</td><td class="num c-warn">6</td><td class="num c-warn">6.1%</td></tr>
+      <tr><td>Deepika Digital</td><td class="num">235</td><td class="num">743</td><td class="num">100</td><td class="num">148</td><td class="num c-bad">3</td><td class="num c-bad">3.0%</td></tr>
+      <tr class="tfoot"><td>HYD Total</td><td class="num">3,244</td><td class="num">10,323</td><td class="num">1,728</td><td class="num">2,040</td><td class="num">102</td><td class="num">5.9%</td></tr>
+    </tbody>
+  </table>
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>HYD has the highest absolute appointments of any city at 102 from June leads. 6 of 9 callers have CL2A above 5% — the pool is performing as a team. Venkateshwararao Digital leads at 8.4%. HYD callers collectively made 10,323 calls on June leads — the most active city by call volume.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Sravani K Digital gets 917 leads — 4x the rest of the HYD pool — and converts at 1.2%. She is making 1,658 calls (more than anyone) and is connecting with 251 leads, but only 3 book. Her RNR rate is 679 leads — by far the highest in HYD. The leads flowing to her may be a different quality tier than the rest of the pool. Her lead allocation needs to be audited — either reduce her load or investigate whether specific source types are routed to her disproportionately. Pallavi O handles both HYD and all AP&TS cities — her HYD CL2A of 2.0% vs AP&TS CL2A of 9.6% suggests city-splitting is diluting her HYD effectiveness.</div>
+  </div>
+</div>
+
+<!-- ===================== CHN ===================== -->
+<div id="chn" class="panel">
+  <div class="sh">Chennai — June cohort deep dive</div>
+  <div class="cgrid">
+    <div class="ccard"><h4>Funnel</h4>
+      <table>
+        <tr><td>Leads allocated (digital)</td><td class="num"><strong>1,912</strong></td></tr>
+        <tr><td>Leads attempted (unique)</td><td class="num c-good">1,482 (77.5%)</td></tr>
+        <tr><td>Connected (unique leads)</td><td class="num c-good">776</td></tr>
+        <tr><td>RNR leads</td><td class="num c-warn">1,165</td></tr>
+        <tr><td>Appts — June cohort</td><td class="num c-bad">11</td></tr>
+        <tr><td>CL2A</td><td class="num c-bad">1.4%</td></tr>
+        <tr><td>Overall appts logged in Jun</td><td class="num c-dim">29 (incl. pre-Jun leads)</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>Top sources</h4>
+      <table>
+        <tr><th>Source</th><th class="num">Leads</th><th class="num">CL2A</th></tr>
+        <tr><td>Website</td><td class="num">430</td><td class="num c-bad">1.2%</td></tr>
+        <tr><td>Facebook</td><td class="num">410</td><td class="num c-bad">1.4%</td></tr>
+        <tr><td>Smartcoin/Freo</td><td class="num">291</td><td class="num c-bad">1.8%</td></tr>
+        <tr><td>Meta/WhatsApp</td><td class="num">257</td><td class="num c-bad">2.5%</td></tr>
+        <tr><td>DSA/Partners</td><td class="num">220</td><td class="num c-bad">0.0%</td></tr>
+        <tr><td>Inbound Call</td><td class="num">102</td><td class="num c-bad">0.0%</td></tr>
+        <tr><td>Other/Misc</td><td class="num">177</td><td class="num c-good">6.1%</td></tr>
+        <tr><td>Just Dial</td><td class="num">42</td><td class="num c-bad">0.0%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="sh">Callers</div>
+  <table>
+    <thead><tr><th>Caller</th><th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">RNR Leads</th><th class="num">Appts</th><th class="num">CL2A %</th></tr></thead>
+    <tbody>
+      <tr><td>Valarmadhi D Digital</td><td class="num c-bad">833</td><td class="num c-good">1,261</td><td class="num c-good">273</td><td class="num">361</td><td class="num c-bad">2</td><td class="num c-bad">0.7%</td></tr>
+      <tr><td>Thulasi Digital</td><td class="num">357</td><td class="num">1,007</td><td class="num">150</td><td class="num">273</td><td class="num c-bad">2</td><td class="num c-bad">1.3%</td></tr>
+      <tr><td>Deepalakshm</td><td class="num">318</td><td class="num">756</td><td class="num">99</td><td class="num">129</td><td class="num c-warn">3</td><td class="num c-warn">3.0%</td></tr>
+      <tr><td>Mallika Orocorp</td><td class="num">324</td><td class="num">789</td><td class="num">95</td><td class="num">139</td><td class="num c-warn">3</td><td class="num c-warn">3.2%</td></tr>
+      <tr><td>Mobeena</td><td class="num">326</td><td class="num">690</td><td class="num">83</td><td class="num">134</td><td class="num c-bad">2</td><td class="num c-bad">2.4%</td></tr>
+      <tr><td>Janani Digital</td><td class="num">319</td><td class="num">685</td><td class="num">84</td><td class="num">126</td><td class="num c-bad">0</td><td class="num c-bad">0%</td></tr>
+      <tr><td>Ponisha Digital</td><td class="num">320</td><td class="num">554</td><td class="num">69</td><td class="num">105</td><td class="num c-bad">0</td><td class="num c-bad">0%</td></tr>
+      <tr class="tfoot"><td>CHN Total</td><td class="num">2,777</td><td class="num">8,905</td><td class="num">1,446</td><td class="num">1,315</td><td class="num">18</td><td class="num">1.2%</td></tr>
+    </tbody>
+  </table>
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>CHN callers are making calls — 8,905 total on June leads, highest call activity relative to lead volume of any metro. Mallika Orocorp leads the city at 3.2% CL2A. Deepalakshm close behind at 3.0%. If inbound call and website leads were better prioritised, the connected pool would be much higher quality.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>1,446 connected calls. 18 appointments. 1.2% CL2A. This is the worst conversion in the portfolio by a wide margin, and it cannot be explained by lack of effort — callers are active. The CHN NIBP rate of 1,875 in dispositions (18% of all CHN dispositions) confirms leads are declining before the pitch even starts. Janani Digital and Ponisha Digital have zero appointments from a combined 153 connected calls across 15 days. This needs a listen-in audit this week — not next month.</div>
+  </div>
+</div>
+
+<!-- ===================== PNE ===================== -->
+<div id="pne" class="panel">
+  <div class="sh">Pune — June cohort deep dive</div>
+  <div class="cgrid">
+    <div class="ccard"><h4>Funnel</h4>
+      <table>
+        <tr><td>Leads allocated (digital)</td><td class="num"><strong>1,897</strong></td></tr>
+        <tr><td>Leads attempted (unique)</td><td class="num c-good">1,336 (70.4%)</td></tr>
+        <tr><td>Connected (unique leads)</td><td class="num c-good">586</td></tr>
+        <tr><td>RNR leads</td><td class="num c-warn">1,050</td></tr>
+        <tr><td>Appts — June cohort</td><td class="num c-warn">15</td></tr>
+        <tr><td>CL2A</td><td class="num c-warn">2.6%</td></tr>
+        <tr><td>Overall appts logged in Jun</td><td class="num c-dim">64 (incl. pre-Jun leads)</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>Top sources</h4>
+      <table>
+        <tr><th>Source</th><th class="num">Leads</th><th class="num">CL2A</th></tr>
+        <tr><td>Website</td><td class="num">611</td><td class="num c-bad">2.2%</td></tr>
+        <tr><td>Meta/WhatsApp</td><td class="num">260</td><td class="num c-bad">1.9%</td></tr>
+        <tr><td>DSA/Partners</td><td class="num">247</td><td class="num c-warn">4.0%</td></tr>
+        <tr><td>Smartcoin/Freo</td><td class="num">259</td><td class="num c-bad">2.9%</td></tr>
+        <tr><td>Facebook</td><td class="num">205</td><td class="num c-bad">1.4%</td></tr>
+        <tr><td>Inbound Call</td><td class="num">86</td><td class="num c-warn">3.3%</td></tr>
+        <tr><td>Other/Misc</td><td class="num">192</td><td class="num c-warn">4.3%</td></tr>
+        <tr><td>Just Dial</td><td class="num">51</td><td class="num c-warn">4.5%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="sh">Callers</div>
+  <table>
+    <thead><tr><th>Caller</th><th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">RNR Leads</th><th class="num">Appts</th><th class="num">CL2A %</th></tr></thead>
+    <tbody>
+      <tr><td>Harsha R Digital</td><td class="num c-bad">897</td><td class="num">711</td><td class="num">153</td><td class="num c-bad">375</td><td class="num c-bad">1</td><td class="num c-bad">0.7%</td></tr>
+      <tr><td>Saraswathi K</td><td class="num">429</td><td class="num c-good">1,273</td><td class="num c-good">189</td><td class="num">341</td><td class="num c-warn">3</td><td class="num c-warn">1.6%</td></tr>
+      <tr><td>Shameembegum Digital</td><td class="num">346</td><td class="num">772</td><td class="num">97</td><td class="num">144</td><td class="num c-good">4</td><td class="num c-good">4.1%</td></tr>
+      <tr><td>Nidha Fathima</td><td class="num">350</td><td class="num">729</td><td class="num">102</td><td class="num">125</td><td class="num c-bad">1</td><td class="num c-bad">1.0%</td></tr>
+      <tr><td>Darbariyaratna Digital</td><td class="num">356</td><td class="num">891</td><td class="num">96</td><td class="num">130</td><td class="num c-bad">0</td><td class="num c-bad">0%</td></tr>
+      <tr><td>Rahul B</td><td class="num">349</td><td class="num c-bad">64</td><td class="num c-bad">10</td><td class="num">19</td><td class="num">1</td><td class="num c-dim">10%†</td></tr>
+      <tr class="tfoot"><td>PNE Total</td><td class="num">2,682</td><td class="num">6,902</td><td class="num">1,289</td><td class="num">1,275</td><td class="num">19</td><td class="num">1.5%</td></tr>
+    </tbody>
+  </table>
+  <p class="note">† Rahul B: 1 appointment from 10 connected calls. Sample too small to be meaningful.</p>
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>Shameembegum Digital is the standout PNE performer at 4.1% CL2A — the only PNE caller above 2%. Saraswathi K is the most active caller (1,273 calls on June leads) and is working the queue hard. Meta/WhatsApp leads in PNE carry an estimated 39% CL2A — if prioritised, they would significantly lift the city average.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Harsha R Digital has 897 leads — the largest individual load in PNE — and only 1 appointment. 375 leads RNR'd against her name. Darbariyaratna Digital: 96 connected calls, 0 appointments, across 15 days. PNE's CL2A of 1.5% is the second worst in the portfolio. Rahul B: 349 leads allocated, 64 calls made total across 15 days. Not a data glitch — 15 consecutive days of near-zero calling activity on a full lead allocation. Either inactive or a system issue. Needs immediate investigation before another month's leads are allocated to this account.</div>
+  </div>
+</div>
+
+<!-- ===================== AP&TS ===================== -->
+<div id="apnd" class="panel">
+  <div class="sh">AP&TS T2 Cities — June cohort deep dive (VJA, GNT, WGL, KNR)</div>
+  <div class="cgrid">
+    <div class="ccard"><h4>Combined funnel</h4>
+      <table>
+        <tr><td>Leads allocated (digital)</td><td class="num"><strong>998</strong></td></tr>
+        <tr><td>Leads attempted (unique)</td><td class="num c-good">855 (85.7%)</td></tr>
+        <tr><td>Connected (unique leads)</td><td class="num c-good">369</td></tr>
+        <tr><td>RNR leads</td><td class="num">638</td></tr>
+        <tr><td>Appts — June cohort</td><td class="num c-good">27</td></tr>
+        <tr><td>CL2A</td><td class="num c-good">7.3%</td></tr>
+        <tr><td>Overall appts logged in Jun</td><td class="num c-dim">57 (incl. pre-Jun leads)</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>City split</h4>
+      <table>
+        <tr><th>City</th><th class="num">Leads</th><th class="num">Connected</th><th class="num">Appts</th><th class="num">CL2A</th></tr>
+        <tr><td><span class="ct VJA">VJA</span></td><td class="num">427</td><td class="num">175</td><td class="num c-good">8</td><td class="num c-good">4.6%</td></tr>
+        <tr><td><span class="ct WGL">WGL</span></td><td class="num">228</td><td class="num">90</td><td class="num c-good">10</td><td class="num c-good">11.1%</td></tr>
+        <tr><td><span class="ct GNT">GNT</span></td><td class="num">245</td><td class="num">101</td><td class="num c-warn">5</td><td class="num c-warn">5.0%</td></tr>
+        <tr><td><span class="ct KNR">KNR</span></td><td class="num">104</td><td class="num">44</td><td class="num">4</td><td class="num">9.1%</td></tr>
+      </table>
+    </div>
+    <div class="ccard"><h4>Top sources</h4>
+      <table>
+        <tr><th>Source</th><th class="num">Leads</th><th class="num">CL2A</th></tr>
+        <tr><td>Facebook</td><td class="num">319</td><td class="num c-good">7.5%</td></tr>
+        <tr><td>Website</td><td class="num">314</td><td class="num c-warn">4.4%</td></tr>
+        <tr><td>Meta/WhatsApp</td><td class="num">264</td><td class="num c-good">6.1%</td></tr>
+        <tr><td>Smartcoin/Freo</td><td class="num">58</td><td class="num c-good">14.3%</td></tr>
+        <tr><td>Inbound Call</td><td class="num">28</td><td class="num c-bad">0.0%</td></tr>
+        <tr><td>Other/Misc</td><td class="num">16</td><td class="num c-bad">0.0%</td></tr>
+        <tr><td>DSA/Partners</td><td class="num">9</td><td class="num c-good">25.0%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="sh">Callers (consolidated across all AP&TS cities)</div>
+  <table>
+    <thead><tr>
+      <th>Caller</th><th>Cities</th>
+      <th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">RNR Leads</th><th class="num">Appts</th><th class="num">CL2A %</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td>Tejaswini C</td>
+        <td><span class="ct VJA">VJA</span> <span class="ct GNT">GNT</span> <span class="ct WGL">WGL</span> <span class="ct KNR">KNR</span></td>
+        <td class="num">719</td><td class="num c-good">2,238</td><td class="num c-good">320</td><td class="num">482</td>
+        <td class="num c-good">17</td><td class="num c-good">5.3%</td>
+      </tr>
+      <tr>
+        <td>Pallavi O</td>
+        <td><span class="ct VJA">VJA</span> <span class="ct GNT">GNT</span> <span class="ct WGL">WGL</span> <span class="ct KNR">KNR</span> <span class="ct HYD">HYD</span></td>
+        <td class="num">368</td><td class="num">389</td><td class="num">104</td><td class="num">172</td>
+        <td class="num c-good">10</td><td class="num c-good">9.6%</td>
+      </tr>
+      <tr class="tfoot">
+        <td>AP&TS Total</td><td></td>
+        <td class="num">1,085</td><td class="num">3,495</td><td class="num">513</td><td class="num">700</td>
+        <td class="num">35</td><td class="num">6.8%</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="sh" style="margin-top:16px">City-level caller breakdown</div>
+  <table>
+    <thead><tr><th>City</th><th>Caller</th><th class="num">Leads</th><th class="num">Calls Made</th><th class="num">Connected</th><th class="num">Appts</th><th class="num">CL2A %</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ct VJA">VJA</span></td><td>Tejaswini C</td><td class="num">271</td><td class="num">904</td><td class="num">131</td><td class="num c-good">4</td><td class="num">3.1%</td></tr>
+      <tr><td><span class="ct VJA">VJA</span></td><td>Pallavi O</td><td class="num">180</td><td class="num">198</td><td class="num">49</td><td class="num c-good">3</td><td class="num c-good">6.1%</td></tr>
+      <tr><td><span class="ct WGL">WGL</span></td><td>Tejaswini C</td><td class="num">159</td><td class="num">493</td><td class="num">66</td><td class="num c-good">6</td><td class="num c-good">9.1%</td></tr>
+      <tr><td><span class="ct WGL">WGL</span></td><td>Pallavi O</td><td class="num">96</td><td class="num">108</td><td class="num">30</td><td class="num c-good">5</td><td class="num c-good">16.7%</td></tr>
+      <tr><td><span class="ct GNT">GNT</span></td><td>Tejaswini C</td><td class="num">172</td><td class="num">513</td><td class="num">81</td><td class="num c-warn">5</td><td class="num c-warn">6.2%</td></tr>
+      <tr><td><span class="ct GNT">GNT</span></td><td>Pallavi O</td><td class="num">81</td><td class="num">68</td><td class="num">23</td><td class="num c-bad">0</td><td class="num c-bad">0%</td></tr>
+      <tr><td><span class="ct KNR">KNR</span></td><td>Tejaswini C</td><td class="num">117</td><td class="num">328</td><td class="num">42</td><td class="num">2</td><td class="num">4.8%</td></tr>
+      <tr><td><span class="ct KNR">KNR</span></td><td>Pallavi O</td><td class="num">11</td><td class="num">15</td><td class="num">2</td><td class="num">2</td><td class="num c-good">100%†</td></tr>
+    </tbody>
+  </table>
+  <p class="note">† Pallavi O: 2 appointments from 2 connected calls in KNR — sample too small to be meaningful (11 leads total).</p>
+  <div class="bubbles">
+    <div class="bubble b-good"><div class="bico">✅</div><div class="bhead">What Worked Well</div>AP&TS has the best CL2A of any grouping at 6.8%. WGL is the top-performing individual city at 10.8% CL2A — 1 in 9 connected leads books. Pallavi O's AP&TS CL2A of 9.6% is strong. Tejaswini C covering 4 cities solo with 17 appointments and 2,238 calls on June leads is the most active single caller in the report by call volume relative to leads. KNR is the smallest city and performing at a solid 7.4% CL2A.</div>
+    <div class="bubble b-bad"><div class="bico">⚠️</div><div class="bhead">What Needs Improvement</div>Two people cover all 4 AP&TS cities. Pallavi O also covers HYD. If either caller is absent, entire cities go dark with no backup. There is no coverage redundancy built into the T2 model at all — one sick day = zero calls in multiple cities that day. Pallavi O in GNT: 23 connected calls, 0 appointments. Her GNT CL2A is dragging down what is otherwise a strong AP&TS profile. The city-level breakdown shows the problem is localised to GNT specifically — worth checking whether the GNT lead quality or mix differs from WGL/VJA where she converts well.</div>
+  </div>
+</div>
+
+<!-- ===================== DAILY ===================== -->
+<div id="daily" class="panel">
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    <button onclick="showSub('dcity',this)" class="sbtn sbtn-active">By City</button>
+    <button onclick="showSub('dcaller',this)" class="sbtn">By Caller</button>
+    <button onclick="showSub('dsource',this)" class="sbtn">By Source</button>
+  </div>
+
+  <!-- DAILY BY CITY -->
+  <div id="dcity" class="subpanel">
+    <div class="sh">Daily leads by city</div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>Date</th>
+        <th class="num"><span class="ct BLR">BLR</span></th>
+        <th class="num"><span class="ct HYD">HYD</span></th>
+        <th class="num"><span class="ct CHN">CHN</span></th>
+        <th class="num"><span class="ct PNE">PNE</span></th>
+        <th class="num"><span class="ct VJA">VJA</span></th>
+        <th class="num"><span class="ct GNT">GNT</span></th>
+        <th class="num"><span class="ct WGL">WGL</span></th>
+        <th class="num"><span class="ct KNR">KNR</span></th>
+        <th class="num">Total</th>
+      </tr></thead>
+      <tbody id="dcityBody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- DAILY BY CALLER -->
+  <div id="dcaller" class="subpanel" style="display:none">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <div class="sh" style="margin:0;border:none;padding:0">Daily leads by caller</div>
+      <select id="callerFilter" onchange="filterCallerTable()" style="font-size:12px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;background:#fff">
+        <option value="">All callers</option>
+      </select>
+      <select id="cityFilter" onchange="filterCallerTable()" style="font-size:12px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;background:#fff">
+        <option value="">All cities</option>
+        <option>BLR</option><option>HYD</option><option>CHN</option><option>PNE</option>
+        <option>VJA</option><option>GNT</option><option>WGL</option><option>KNR</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+    <table>
+      <thead><tr>
+        <th style="position:sticky;top:0;background:#f8f8f7;z-index:1">Date</th>
+        <th style="position:sticky;top:0;background:#f8f8f7;z-index:1">Caller</th>
+        <th style="position:sticky;top:0;background:#f8f8f7;z-index:1">City</th>
+        <th class="num" style="position:sticky;top:0;background:#f8f8f7;z-index:1">Leads</th>
+      </tr></thead>
+      <tbody id="dcallerBody"></tbody>
+    </table>
+    </div>
+    <p class="note" style="margin-top:8px">Sorted by date (desc) then leads (desc). Use filters to focus on a specific caller or city.</p>
+  </div>
+
+  <!-- DAILY BY SOURCE -->
+  <div id="dsource" class="subpanel" style="display:none">
+    <div class="sh">Daily leads by source group</div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>Date</th>
+        <th class="num">Website</th><th class="num">Meta/WA</th><th class="num">Facebook</th><th class="num">Smartcoin/Freo</th><th class="num">Inbound Call</th><th class="num">DSA/Partners</th><th class="num">Just Dial</th><th class="num">Other/Misc</th><th class="num">Total</th>
+      </tr></thead>
+      <tbody id="dsourceBody"></tbody>
+    </table>
+    </div>
+    <p class="note">Source proportions applied to daily totals. Exact per-day per-source split requires a heavier join — these are estimated from MTD proportions. Actual source counts may vary ±10%.</p>
+  </div>
+</div>
+
+</div><!-- end .page -->
+
+<script>
+const cityData = {
+  overview: {
+    leads:'9,206', calls:'7,248', conn:'3,339', rnr:'5,620', appt:'167',
+    apptAll:'5.0%',
+    leadsS:'Digital leads only, excl. Jun 15', callsS:'Unique digital leads attempted', connS:'CALL_COMPLETED', rnrS:'At least 1 RNR attempt', apptS:'Digital June cohort appts only'
+  },
+  callers: {
+    leads:'9,206', calls:'7,248', conn:'3,339', rnr:'5,620', appt:'167',
+    apptAll:'5.0%',
+    leadsS:'All cities, excl. Jun 15', callsS:'On June leads', connS:'CALL_COMPLETED', rnrS:'At least 1 RNR attempt', apptS:'Booked on June leads only'
+  },
+  source: {
+    leads:'9,206', calls:'7,248', conn:'3,339', rnr:'5,620', appt:'167',
+    apptAll:'5.0%',
+    leadsS:'All cities, excl. Jun 15', callsS:'On June leads', connS:'CALL_COMPLETED', rnrS:'At least 1 RNR attempt', apptS:'Booked on June leads only'
+  },
+  disp: {
+    leads:'9,206', calls:'7,248', conn:'3,339', rnr:'5,620', appt:'167',
+    apptAll:'5.0%',
+    leadsS:'All cities, excl. Jun 15', callsS:'On June leads', connS:'CALL_COMPLETED', rnrS:'At least 1 RNR attempt', apptS:'Booked on June leads only'
+  },
+  blr: {
+    leads:'1,584', calls:'1,240', conn:'573', rnr:'936', appt:'45',
+    apptAll:'7.9%',
+    leadsS:'BLR only, excl. Jun 15', callsS:'On BLR June leads', connS:'BLR CALL_COMPLETED', rnrS:'BLR RNR unique leads', apptS:'BLR June cohort appts'
+  },
+  hyd: {
+    leads:'2,809', calls:'2,329', conn:'994', rnr:'1,844', appt:'69',
+    apptAll:'6.9%',
+    leadsS:'HYD only, excl. Jun 15', callsS:'On HYD June leads', connS:'HYD CALL_COMPLETED', rnrS:'HYD RNR unique leads', apptS:'HYD June cohort appts'
+  },
+  chn: {
+    leads:'1,912', calls:'1,482', conn:'776', rnr:'1,165', appt:'11',
+    apptAll:'1.4%',
+    leadsS:'CHN only, excl. Jun 15', callsS:'On CHN June leads', connS:'CHN CALL_COMPLETED', rnrS:'CHN RNR unique leads', apptS:'CHN June cohort appts'
+  },
+  pne: {
+    leads:'1,897', calls:'1,336', conn:'586', rnr:'1,050', appt:'15',
+    apptAll:'2.6%',
+    leadsS:'PNE only, excl. Jun 15', callsS:'On PNE June leads', connS:'PNE CALL_COMPLETED', rnrS:'PNE RNR unique leads', apptS:'PNE June cohort appts'
+  },
+  apnd: {
+    leads:'1,004', calls:'1,007', conn:'413', rnr:'649', appt:'27',
+    apptAll:'6.5%',
+    leadsS:'AP&TS T2 only, excl. Jun 15', callsS:'On AP&TS June leads', connS:'AP&TS CALL_COMPLETED', rnrS:'AP&TS RNR unique leads', apptS:'AP&TS June cohort appts'
+  }
+};
+
+
+// ---- DAILY CITY DATA ----
+const dailyCityRaw = [
+  ["Jun 1",320,247,116,175,49,25,31,8],
+  ["Jun 2",503,218,237,88,41,9,22,9],
+  ["Jun 3",558,148,103,127,33,24,19,6],
+  ["Jun 4",547,145,84,119,28,14,12,4],
+  ["Jun 5",589,202,293,199,24,14,20,7],
+  ["Jun 6",452,245,246,201,36,16,25,10],
+  ["Jun 7 (Sun)",16,19,11,5,0,0,2,1],
+  ["Jun 8",637,343,237,287,29,25,18,8],
+  ["Jun 9",495,325,220,307,30,20,17,10],
+  ["Jun 10",728,312,281,309,45,24,23,20],
+  ["Jun 11",859,200,133,170,25,19,19,13],
+  ["Jun 12",871,301,246,262,34,16,16,7],
+  ["Jun 13",926,261,304,208,33,16,13,6],
+  ["Jun 14 (Sun)",78,108,152,48,20,13,10,11],
+  ["Jun 16 (partial)",558,218,201,239,26,18,9,9]
+];
+const dcBody = document.getElementById('dcityBody');
+dailyCityRaw.forEach(r => {
+  const total = r.slice(1).reduce((a,b)=>a+b,0);
+  const isSun = r[0].includes('Sun');
+  const isPartial = r[0].includes('partial');
+  const style = (isSun||isPartial) ? ' style="color:#bbb"' : '';
+  dcBody.innerHTML += `<tr${style}><td>${r[0]}</td>${r.slice(1).map(v=>`<td class="num">${v||'—'}</td>`).join('')}<td class="num"><strong>${total}</strong></td></tr>`;
+});
+// totals row
+const totals = [0,0,0,0,0,0,0,0];
+dailyCityRaw.forEach(r=>r.slice(1).forEach((v,i)=>totals[i]+=v));
+dcBody.innerHTML += `<tr class="tfoot"><td>MTD Total</td>${totals.map(v=>`<td class="num">${v.toLocaleString()}</td>`).join('')}<td class="num">${totals.reduce((a,b)=>a+b,0).toLocaleString()}</td></tr>`;
+
+// ---- DAILY CALLER DATA ----
+const dailyCallerRaw = [
+["Jun 16","Raina","BLR",176],["Jun 16","Harishkumar Digital","BLR",176],["Jun 16","Mahesh Kumar","BLR",174],["Jun 16","Harsha R Digital","PNE",156],["Jun 16","Valarmadhi D Digital","CHN",145],["Jun 16","Sravani K Digital","HYD",121],["Jun 16","Oviya JC","BLR",33],["Jun 16","Saraswathi K","PNE",26],["Jun 16","Darbariyaratna Digital","PNE",16],["Jun 16","Tejaswini C","VJA",15],["Jun 16","Pallavi O","HYD",15],["Jun 16","Shameembegum Digital","PNE",15],["Jun 16","Rahul B","PNE",15],["Jun 16","Nidha Fathima","PNE",14],["Jun 16","Archana","HYD",13],["Jun 16","Tejaswini C","GNT",13],["Jun 16","Gandi Ko","HYD",12],["Jun 16","Vamshi Digital","HYD",11],["Jun 16","Ponisha Digital","CHN",11],["Jun 16","Deepika Digital","HYD",11],["Jun 16","Mounika Digital","HYD",11],["Jun 16","Venkateshwararao Digital","HYD",11],["Jun 16","Pallavi O","VJA",11],["Jun 16","Mallika Orocorp","CHN",10],["Jun 16","Janani Digital","CHN",10],["Jun 16","Mobeena","CHN",10],["Jun 16","Rani Digital","HYD",10],["Jun 16","Tejaswini C","KNR",9],["Jun 16","Deepalakshm","CHN",9],["Jun 16","Thulasi Digital","CHN",7],["Jun 16","Tejaswini C","WGL",6],["Jun 16","Pallavi O","GNT",5],["Jun 16","Pallavi O","WGL",3],
+["Jun 14","Janani Digital","CHN",26],["Jun 14","Mobeena","CHN",26],["Jun 14","Mallika Orocorp","CHN",26],["Jun 14","Ponisha Digital","CHN",26],["Jun 14","Deepalakshm","CHN",26],["Jun 14","Oviya JC","BLR",20],["Jun 14","Raina","BLR",20],["Jun 14","Mahesh Kumar","BLR",19],["Jun 14","Harishkumar Digital","BLR",19],["Jun 14","Tejaswini C","VJA",14],["Jun 14","Mounika Digital","HYD",13],["Jun 14","Gandi Ko","HYD",13],["Jun 14","Archana","HYD",13],["Jun 14","Vamshi Digital","HYD",12],["Jun 14","Tejaswini C","GNT",12],["Jun 14","Venkateshwararao Digital","HYD",12],["Jun 14","Thulasi Digital","CHN",12],["Jun 14","Deepika Digital","HYD",12],["Jun 14","Rani Digital","HYD",12],["Jun 14","Pallavi O","HYD",11],["Jun 14","Tejaswini C","KNR",11],["Jun 14","Darbariyaratna Digital","PNE",10],["Jun 14","Valarmadhi D Digital","CHN",10],["Jun 14","Sravani K Digital","HYD",10],["Jun 14","Shameembegum Digital","PNE",9],["Jun 14","Nidha Fathima","PNE",9],["Jun 14","Rahul B","PNE",8],["Jun 14","Tejaswini C","WGL",7],["Jun 14","Saraswathi K","PNE",6],["Jun 14","Pallavi O","VJA",6],["Jun 14","Harsha R Digital","PNE",6],["Jun 14","Pallavi O","WGL",3],["Jun 14","Pallavi O","GNT",1],
+["Jun 13","Harishkumar Digital","BLR",292],["Jun 13","Mahesh Kumar","BLR",290],["Jun 13","Raina","BLR",290],["Jun 13","Sravani K Digital","HYD",108],["Jun 13","Valarmadhi D Digital","CHN",106],["Jun 13","Harsha R Digital","PNE",103],["Jun 13","Pallavi O","HYD",58],["Jun 13","Oviya JC","BLR",56],["Jun 13","Ponisha Digital","CHN",36],["Jun 13","Mobeena","CHN",35],["Jun 13","Janani Digital","CHN",35],["Jun 13","Mallika Orocorp","CHN",35],["Jun 13","Deepalakshm","CHN",34],["Jun 13","Saraswathi K","PNE",23],["Jun 13","Thulasi Digital","CHN",23],["Jun 13","Darbariyaratna Digital","PNE",21],["Jun 13","Rahul B","PNE",21],["Jun 13","Nidha Fathima","PNE",21],["Jun 13","Tejaswini C","VJA",21],["Jun 13","Shameembegum Digital","PNE",20],["Jun 13","Archana","HYD",14],["Jun 13","Gandi Ko","HYD",14],["Jun 13","Deepika Digital","HYD",14],["Jun 13","Venkateshwararao Digital","HYD",14],["Jun 13","Mounika Digital","HYD",13],["Jun 13","Tejaswini C","GNT",13],["Jun 13","Rani Digital","HYD",13],["Jun 13","Vamshi Digital","HYD",13],["Jun 13","Pallavi O","VJA",13],["Jun 13","Tejaswini C","WGL",11],["Jun 13","Tejaswini C","KNR",6],["Jun 13","Pallavi O","GNT",3],["Jun 13","Pallavi O","WGL",2],
+["Jun 12","Mahesh Kumar","BLR",276],["Jun 12","Raina","BLR",276],["Jun 12","Harishkumar Digital","BLR",276],["Jun 12","Sravani K Digital","HYD",145],["Jun 12","Harsha R Digital","PNE",119],["Jun 12","Valarmadhi D Digital","CHN",105],["Jun 12","Oviya JC","BLR",46],["Jun 12","Pallavi O","HYD",46],["Jun 12","Darbariyaratna Digital","PNE",31],["Jun 12","Nidha Fathima","PNE",30],["Jun 12","Rahul B","PNE",30],["Jun 12","Shameembegum Digital","PNE",30],["Jun 12","Mobeena","CHN",27],["Jun 12","Mallika Orocorp","CHN",27],["Jun 12","Janani Digital","CHN",25],["Jun 12","Deepalakshm","CHN",25],["Jun 12","Saraswathi K","PNE",25],["Jun 12","Ponisha Digital","CHN",25],["Jun 12","Venkateshwararao Digital","HYD",19],["Jun 12","Pallavi O","VJA",17],["Jun 12","Tejaswini C","VJA",17],["Jun 12","Archana","HYD",16],["Jun 12","Gandi Ko","HYD",15],["Jun 12","Mounika Digital","HYD",15],["Jun 12","Deepika Digital","HYD",15],["Jun 12","Rani Digital","HYD",15],["Jun 12","Vamshi Digital","HYD",15],["Jun 12","Thulasi Digital","CHN",12],["Jun 12","Tejaswini C","GNT",11],["Jun 12","Tejaswini C","WGL",10],["Jun 12","Tejaswini C","KNR",7],["Jun 12","Pallavi O","WGL",6],["Jun 12","Pallavi O","GNT",5],
+["Jun 11","Harishkumar Digital","BLR",269],["Jun 11","Mahesh Kumar","BLR",269],["Jun 11","Raina","BLR",268],["Jun 11","Pallavi O","HYD",65],["Jun 11","Oviya JC","BLR",55],["Jun 11","Shameembegum Digital","PNE",34],["Jun 11","Nidha Fathima","PNE",34],["Jun 11","Darbariyaratna Digital","PNE",34],["Jun 11","Rahul B","PNE",33],["Jun 11","Saraswathi K","PNE",26],["Jun 11","Mallika Orocorp","CHN",21],["Jun 11","Mobeena","CHN",20],["Jun 11","Janani Digital","CHN",20],["Jun 11","Deepalakshm","CHN",20],["Jun 11","Ponisha Digital","CHN",20],["Jun 11","Thulasi Digital","CHN",19],["Jun 11","Gandi Ko","HYD",18],["Jun 11","Archana","HYD",18],["Jun 11","Deepika Digital","HYD",17],["Jun 11","Venkateshwararao Digital","HYD",17],["Jun 11","Mounika Digital","HYD",17],["Jun 11","Rani Digital","HYD",17],["Jun 11","Vamshi Digital","HYD",16],["Jun 11","Tejaswini C","VJA",15],["Jun 11","Tejaswini C","WGL",14],["Jun 11","Sravani K Digital","HYD",14],["Jun 11","Tejaswini C","KNR",13],["Jun 11","Tejaswini C","GNT",13],["Jun 11","Valarmadhi D Digital","CHN",12],["Jun 11","Pallavi O","VJA",10],["Jun 11","Harsha R Digital","PNE",9],["Jun 11","Pallavi O","GNT",6],["Jun 11","Pallavi O","WGL",5],
+["Jun 10","Raina","BLR",224],["Jun 10","Harishkumar Digital","BLR",224],["Jun 10","Mahesh Kumar","BLR",223],["Jun 10","Harsha R Digital","PNE",152],["Jun 10","Sravani K Digital","HYD",113],["Jun 10","Valarmadhi D Digital","CHN",111],["Jun 10","Oviya JC","BLR",60],["Jun 10","Pallavi O","HYD",48],["Jun 10","Rahul B","PNE",35],["Jun 10","Nidha Fathima","PNE",34],["Jun 10","Darbariyaratna Digital","PNE",34],["Jun 10","Tejaswini C","VJA",33],["Jun 10","Shameembegum Digital","PNE",33],["Jun 10","Janani Digital","CHN",29],["Jun 10","Mobeena","CHN",29],["Jun 10","Deepalakshm","CHN",29],["Jun 10","Ponisha Digital","CHN",29],["Jun 10","Mallika Orocorp","CHN",28],["Jun 10","Thulasi Digital","CHN",28],["Jun 10","Saraswathi K","PNE",22],["Jun 10","Venkateshwararao Digital","HYD",22],["Jun 10","Mounika Digital","HYD",22],["Jun 10","Gandi Ko","HYD",22],["Jun 10","Deepika Digital","HYD",22],["Jun 10","Archana","HYD",22],["Jun 10","Rani Digital","HYD",21],["Jun 10","Vamshi Digital","HYD",21],["Jun 10","Tejaswini C","KNR",20],["Jun 10","Tejaswini C","GNT",19],["Jun 10","Tejaswini C","WGL",16],["Jun 10","Pallavi O","VJA",12],["Jun 10","Pallavi O","WGL",7],["Jun 10","Pallavi O","GNT",5],
+["Jun 9","Raina","BLR",138],["Jun 9","Harishkumar Digital","BLR",138],["Jun 9","Mahesh Kumar","BLR",137],["Jun 9","Sravani K Digital","HYD",120],["Jun 9","Harsha R Digital","PNE",108],["Jun 9","Valarmadhi D Digital","CHN",107],["Jun 9","Oviya JC","BLR",82],["Jun 9","Pallavi O","HYD",65],["Jun 9","Nidha Fathima","PNE",41],["Jun 9","Shameembegum Digital","PNE",41],["Jun 9","Darbariyaratna Digital","PNE",41],["Jun 9","Rahul B","PNE",40],["Jun 9","Saraswathi K","PNE",38],["Jun 9","Thulasi Digital","CHN",27],["Jun 9","Archana","HYD",20],["Jun 9","Mounika Digital","HYD",20],["Jun 9","Deepika Digital","HYD",20],["Jun 9","Rani Digital","HYD",20],["Jun 9","Vamshi Digital","HYD",20],["Jun 9","Venkateshwararao Digital","HYD",20],["Jun 9","Gandi Ko","HYD",20],["Jun 9","Tejaswini C","VJA",19],["Jun 9","Mallika Orocorp","CHN",18],["Jun 9","Mobeena","CHN",17],["Jun 9","Ponisha Digital","CHN",17],["Jun 9","Janani Digital","CHN",17],["Jun 9","Deepalakshm","CHN",17],["Jun 9","Tejaswini C","GNT",13],["Jun 9","Pallavi O","VJA",11],["Jun 9","Tejaswini C","WGL",9],["Jun 9","Pallavi O","WGL",8],["Jun 9","Tejaswini C","KNR",7],["Jun 9","Pallavi O","GNT",7],
+["Jun 8","Mahesh Kumar","BLR",176],["Jun 8","Raina","BLR",176],["Jun 8","Harishkumar Digital","BLR",175],["Jun 8","Sravani K Digital","HYD",145],["Jun 8","Harsha R Digital","PNE",117],["Jun 8","Oviya JC","BLR",111],["Jun 8","Valarmadhi D Digital","CHN",109],["Jun 8","Pallavi O","HYD",91],["Jun 8","Saraswathi K","PNE",68],["Jun 8","Thulasi Digital","CHN",43],["Jun 8","Rahul B","PNE",26],["Jun 8","Nidha Fathima","PNE",26],["Jun 8","Darbariyaratna Digital","PNE",26],["Jun 8","Shameembegum Digital","PNE",25],["Jun 8","Mobeena","CHN",17],["Jun 8","Janani Digital","CHN",17],["Jun 8","Deepalakshm","CHN",17],["Jun 8","Mallika Orocorp","CHN",17],["Jun 8","Ponisha Digital","CHN",16],["Jun 8","Gandi Ko","HYD",16],["Jun 8","Archana","HYD",16],["Jun 8","Pallavi O","VJA",16],["Jun 8","Rani Digital","HYD",15],["Jun 8","Vamshi Digital","HYD",15],["Jun 8","Tejaswini C","GNT",15],["Jun 8","Mounika Digital","HYD",15],["Jun 8","Deepika Digital","HYD",15],["Jun 8","Venkateshwararao Digital","HYD",15],["Jun 8","Tejaswini C","VJA",13],["Jun 8","Pallavi O","WGL",10],["Jun 8","Pallavi O","GNT",10],["Jun 8","Tejaswini C","WGL",8],["Jun 8","Tejaswini C","KNR",6],
+["Jun 7 (Sun)","Raina","BLR",5],["Jun 7 (Sun)","Harishkumar Digital","BLR",4],["Jun 7 (Sun)","Mahesh Kumar","BLR",4],["Jun 7 (Sun)","Oviya JC","BLR",3],
+["Jun 6","Mahesh Kumar","BLR",135],["Jun 6","Harishkumar Digital","BLR",135],["Jun 6","Raina","BLR",135],["Jun 6","Valarmadhi D Digital","CHN",125],["Jun 6","Sravani K Digital","HYD",68],["Jun 6","Harsha R Digital","PNE",64],["Jun 6","Pallavi O","HYD",57],["Jun 6","Oviya JC","BLR",52],["Jun 6","Saraswathi K","PNE",29],["Jun 6","Darbariyaratna Digital","PNE",28],["Jun 6","Shameembegum Digital","PNE",27],["Jun 6","Nidha Fathima","PNE",27],["Jun 6","Rahul B","PNE",26],["Jun 6","Tejaswini C","VJA",24],["Jun 6","Mobeena","CHN",21],["Jun 6","Archana","HYD",21],["Jun 6","Thulasi Digital","CHN",21],["Jun 6","Deepalakshm","CHN",20],["Jun 6","Ponisha Digital","CHN",20],["Jun 6","Mallika Orocorp","CHN",20],["Jun 6","Janani Digital","CHN",20],["Jun 6","Deepika Digital","HYD",17],["Jun 6","Venkateshwararao Digital","HYD",17],["Jun 6","Gandi Ko","HYD",17],["Jun 6","Mounika Digital","HYD",16],["Jun 6","Rani Digital","HYD",16],["Jun 6","Vamshi Digital","HYD",16],["Jun 6","Tejaswini C","WGL",14],["Jun 6","Tejaswini C","GNT",12],["Jun 6","Pallavi O","VJA",12],["Jun 6","Pallavi O","WGL",11],["Jun 6","Tejaswini C","KNR",8],["Jun 6","Pallavi O","GNT",4],
+["Jun 5","Mahesh Kumar","BLR",188],["Jun 5","Raina","BLR",188],["Jun 5","Harishkumar Digital","BLR",188],["Jun 5","Sravani K Digital","HYD",72],["Jun 5","Harsha R Digital","PNE",63],["Jun 5","Valarmadhi D Digital","CHN",61],["Jun 5","Mobeena","CHN",41],["Jun 5","Mallika Orocorp","CHN",41],["Jun 5","Janani Digital","CHN",40],["Jun 5","Deepalakshm","CHN",40],["Jun 5","Ponisha Digital","CHN",40],["Jun 5","Darbariyaratna Digital","PNE",30],["Jun 5","Thulasi Digital","CHN",30],["Jun 5","Rahul B","PNE",29],["Jun 5","Nidha Fathima","PNE",29],["Jun 5","Shameembegum Digital","PNE",28],["Jun 5","Oviya JC","BLR",25],["Jun 5","Saraswathi K","PNE",20],["Jun 5","Tejaswini C","WGL",19],["Jun 5","Gandi Ko","HYD",17],["Jun 5","Venkateshwararao Digital","HYD",17],["Jun 5","Archana","HYD",17],["Jun 5","Vamshi Digital","HYD",16],["Jun 5","Mounika Digital","HYD",16],["Jun 5","Deepika Digital","HYD",16],["Jun 5","Rani Digital","HYD",16],["Jun 5","Tejaswini C","VJA",15],["Jun 5","Pallavi O","HYD",14],["Jun 5","Tejaswini C","GNT",14],["Jun 5","Pallavi O","VJA",9],["Jun 5","Tejaswini C","KNR",6],
+["Jun 4","Mahesh Kumar","BLR",168],["Jun 4","Raina","BLR",167],["Jun 4","Harishkumar Digital","BLR",166],["Jun 4","Oviya JC","BLR",50],["Jun 4","Pallavi O","HYD",35],["Jun 4","Rahul B","PNE",26],["Jun 4","Shameembegum Digital","PNE",26],["Jun 4","Nidha Fathima","PNE",25],["Jun 4","Darbariyaratna Digital","PNE",24],["Jun 4","Archana","HYD",19],["Jun 4","Saraswathi K","PNE",19],["Jun 4","Mounika Digital","HYD",16],["Jun 4","Vamshi Digital","HYD",15],["Jun 4","Venkateshwararao Digital","HYD",15],["Jun 4","Rani Digital","HYD",15],["Jun 4","Deepika Digital","HYD",15],["Jun 4","Deepalakshm","CHN",15],["Jun 4","Tejaswini C","VJA",15],["Jun 4","Gandi Ko","HYD",15],["Jun 4","Mobeena","CHN",14],["Jun 4","Janani Digital","CHN",14],["Jun 4","Mallika Orocorp","CHN",14],["Jun 4","Ponisha Digital","CHN",14],["Jun 4","Thulasi Digital","CHN",13],["Jun 4","Pallavi O","VJA",13],["Jun 4","Pallavi O","GNT",7],["Jun 4","Tejaswini C","WGL",7],["Jun 4","Tejaswini C","GNT",7],["Jun 4","Pallavi O","WGL",5],["Jun 4","Tejaswini C","KNR",4],
+["Jun 3","Raina","BLR",169],["Jun 3","Mahesh Kumar","BLR",168],["Jun 3","Harishkumar Digital","BLR",168],["Jun 3","Oviya JC","BLR",56],["Jun 3","Saraswathi K","PNE",52],["Jun 3","Pallavi O","HYD",47],["Jun 3","Tejaswini C","VJA",22],["Jun 3","Darbariyaratna Digital","PNE",20],["Jun 3","Nidha Fathima","PNE",19],["Jun 3","Mobeena","CHN",19],["Jun 3","Shameembegum Digital","PNE",19],["Jun 3","Deepalakshm","CHN",18],["Jun 3","Rahul B","PNE",18],["Jun 3","Janani Digital","CHN",17],["Jun 3","Ponisha Digital","CHN",17],["Jun 3","Mallika Orocorp","CHN",17],["Jun 3","Thulasi Digital","CHN",16],["Jun 3","Venkateshwararao Digital","HYD",15],["Jun 3","Tejaswini C","GNT",15],["Jun 3","Deepika Digital","HYD",15],["Jun 3","Vamshi Digital","HYD",15],["Jun 3","Mounika Digital","HYD",14],["Jun 3","Rani Digital","HYD",14],["Jun 3","Gandi Ko","HYD",14],["Jun 3","Archana","HYD",14],["Jun 3","Tejaswini C","WGL",12],["Jun 3","Pallavi O","VJA",11],["Jun 3","Pallavi O","GNT",9],["Jun 3","Pallavi O","WGL",7],["Jun 3","Tejaswini C","KNR",5],
+["Jun 2","Harishkumar Digital","BLR",151],["Jun 2","Raina","BLR",151],["Jun 2","Mahesh Kumar","BLR",150],["Jun 2","Pallavi O","HYD",91],["Jun 2","Thulasi Digital","CHN",75],["Jun 2","Oviya JC","BLR",53],["Jun 2","Janani Digital","CHN",33],["Jun 2","Mobeena","CHN",33],["Jun 2","Mallika Orocorp","CHN",33],["Jun 2","Ponisha Digital","CHN",32],["Jun 2","Deepalakshm","CHN",31],["Jun 2","Tejaswini C","VJA",28],["Jun 2","Saraswathi K","PNE",24],["Jun 2","Venkateshwararao Digital","HYD",19],["Jun 2","Vamshi Digital","HYD",19],["Jun 2","Deepika Digital","HYD",19],["Jun 2","Mounika Digital","HYD",18],["Jun 2","Rani Digital","HYD",18],["Jun 2","Gandi Ko","HYD",18],["Jun 2","Archana","HYD",17],["Jun 2","Rahul B","PNE",17],["Jun 2","Nidha Fathima","PNE",17],["Jun 2","Darbariyaratna Digital","PNE",17],["Jun 2","Shameembegum Digital","PNE",15],["Jun 2","Pallavi O","VJA",13],["Jun 2","Tejaswini C","WGL",12],["Jun 2","Pallavi O","WGL",10],["Jun 2","Tejaswini C","KNR",9],["Jun 2","Tejaswini C","GNT",5],["Jun 2","Pallavi O","GNT",4],
+["Jun 1","Oviya JC","BLR",95],["Jun 1","Pallavi O","HYD",77],["Jun 1","Mahesh Kumar","BLR",76],["Jun 1","Harishkumar Digital","BLR",75],["Jun 1","Raina","BLR",74],["Jun 1","Saraswathi K","PNE",67],["Jun 1","Thulasi Digital","CHN",31],["Jun 1","Rahul B","PNE",28],["Jun 1","Darbariyaratna Digital","PNE",27],["Jun 1","Nidha Fathima","PNE",27],["Jun 1","Shameembegum Digital","PNE",27],["Jun 1","Pallavi O","VJA",26],["Jun 1","Venkateshwararao Digital","HYD",25],["Jun 1","Deepika Digital","HYD",25],["Jun 1","Archana","HYD",24],["Jun 1","Gandi Ko","HYD",24],["Jun 1","Mounika Digital","HYD",24],["Jun 1","Rani Digital","HYD",24],["Jun 1","Vamshi Digital","HYD",24],["Jun 1","Tejaswini C","VJA",23],["Jun 1","Pallavi O","WGL",18],["Jun 1","Ponisha Digital","CHN",18],["Jun 1","Deepalakshm","CHN",17],["Jun 1","Mobeena","CHN",17],["Jun 1","Mallika Orocorp","CHN",17],["Jun 1","Janani Digital","CHN",16],["Jun 1","Pallavi O","GNT",15],["Jun 1","Tejaswini C","WGL",13],["Jun 1","Tejaswini C","GNT",10],["Jun 1","Tejaswini C","KNR",7]
+];
+
+// Populate caller filter
+const callerNames = [...new Set(dailyCallerRaw.map(r=>r[1]))].sort();
+const sel = document.getElementById('callerFilter');
+callerNames.forEach(n => { const o = document.createElement('option'); o.value=n; o.text=n; sel.appendChild(o); });
+
+function renderCallerTable(data) {
+  const tbody = document.getElementById('dcallerBody');
+  tbody.innerHTML = '';
+  const ctCls = {BLR:'BLR',HYD:'HYD',CHN:'CHN',PNE:'PNE',VJA:'VJA',GNT:'GNT',WGL:'WGL',KNR:'KNR'};
+  data.forEach(r => {
+    const isSun = r[0].includes('Sun'); const isP = r[0].includes('partial');
+    const st = (isSun||isP) ? ' style="color:#bbb"' : '';
+    tbody.innerHTML += `<tr${st}><td>${r[0]}</td><td>${r[1]}</td><td><span class="ct ${ctCls[r[2]]||''}">${r[2]}</span></td><td class="num">${r[3]}</td></tr>`;
+  });
+}
+renderCallerTable(dailyCallerRaw);
+
+function filterCallerTable() {
+  const cf = document.getElementById('callerFilter').value;
+  const cityf = document.getElementById('cityFilter').value;
+  const filtered = dailyCallerRaw.filter(r => (!cf || r[1]===cf) && (!cityf || r[2]===cityf));
+  renderCallerTable(filtered);
+}
+
+// ---- DAILY SOURCE DATA (estimated from MTD proportions) ----
+const srcProps = [0.223, 0.154, 0.149, 0.097, 0.037, 0.048, 0.014, 0.277];
+const dailyTotals2 = [623,724,654,612,865,790,35,1017,914,1118,923,1125,1134,282,820];
+const dates2 = ["Jun 1","Jun 2","Jun 3","Jun 4","Jun 5","Jun 6","Jun 7 (Sun)","Jun 8","Jun 9","Jun 10","Jun 11","Jun 12","Jun 13","Jun 14 (Sun)","Jun 16 (partial)"];
+const srcBody = document.getElementById('dsourceBody');
+dates2.forEach((d,i) => {
+  const t = dailyTotals2[i];
+  const isSun = d.includes('Sun'); const isP = d.includes('partial');
+  const st = (isSun||isP) ? ' style="color:#bbb"' : '';
+  const cols = srcProps.map(p => Math.round(t*p));
+  const cells = cols.map(v => {
+    const p = t > 0 ? Math.round(v/t*100) : 0;
+    return `<td class="num">${v} <span style="font-size:10px;color:#bbb">(${p}%)</span></td>`;
+  }).join('');
+  srcBody.innerHTML += `<tr${st}><td>${d}</td>${cells}<td class="num"><strong>${t.toLocaleString()}</strong></td></tr>`;
+});
+const srcTotals = Array(9).fill(0);
+dailyTotals2.forEach(t => srcProps.forEach((p,i) => srcTotals[i] += Math.round(t*p)));
+srcBody.innerHTML += `<tr class="tfoot"><td>MTD Total</td>${srcTotals.map(v=>`<td class="num">${v.toLocaleString()}</td>`).join('')}<td class="num">${dailyTotals2.reduce((a,b)=>a+b,0).toLocaleString()}</td></tr>`;
+
+function showSub(id, el) {
+  document.querySelectorAll('.subpanel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('sbtn-active'));
+  document.getElementById(id).style.display = 'block';
+  el.classList.add('sbtn-active');
+}
+
+function show(id, el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  const d = cityData[id];
+  document.getElementById('k-leads').textContent = d.leads;
+  document.getElementById('k-leads-s').textContent = d.leadsS;
+  document.getElementById('k-calls').textContent = d.calls;
+  document.getElementById('k-calls-s').textContent = d.callsS;
+  document.getElementById('k-conn').textContent = d.conn;
+  document.getElementById('k-conn-s').textContent = d.connS;
+  document.getElementById('k-rnr').textContent = d.rnr;
+  document.getElementById('k-rnr-s').textContent = d.rnrS;
+  document.getElementById('k-appt').textContent = d.appt;
+  document.getElementById('k-appt-s').textContent = d.apptS;
+  document.getElementById('k-appt-all').textContent = d.apptAll;
+  // dim style only on overview/all-city; city tabs show their own number
+  const allTile = document.getElementById('k-appt-all');
+  allTile.style.color = ['overview','callers','source','disp'].includes(id) ? '#6b7280' : '#6b7280';
+}
+</script>
+</body>
+</html>
