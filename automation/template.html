@@ -1,0 +1,702 @@
+<title>CO Walk-ins Report</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #ece8e0; --paper: #14181f; --paper-raised: #1b202a;
+      --brass: #d1a35f; --slate: #9aa3b0; --line: #2b3140;
+      --good: #6fbf8e; --warn: #e0a94a; --bad: #e08079;
+      --good-bg: rgba(111,191,142,0.12); --warn-bg: rgba(224,169,74,0.12); --bad-bg: rgba(224,128,121,0.12);
+      --input-bg: #1b202a;
+    }
+  }
+  :root {
+    --ink: #14181f; --paper: #f6f4ef; --paper-raised: #ffffff;
+    --brass: #a97a35; --slate: #5b6472; --line: #dfdad2;
+    --good: #3f7d58; --warn: #b8862f; --bad: #b3453f;
+    --good-bg: rgba(63,125,88,0.08); --warn-bg: rgba(184,134,47,0.08); --bad-bg: rgba(179,69,63,0.08);
+    --input-bg: #ffffff;
+  }
+  :root[data-theme="dark"] {
+    --ink: #ece8e0; --paper: #14181f; --paper-raised: #1b202a;
+    --brass: #d1a35f; --slate: #9aa3b0; --line: #2b3140;
+    --good: #6fbf8e; --warn: #e0a94a; --bad: #e08079;
+    --good-bg: rgba(111,191,142,0.12); --warn-bg: rgba(224,169,74,0.12); --bad-bg: rgba(224,128,121,0.12);
+    --input-bg: #1b202a;
+  }
+  :root[data-theme="light"] {
+    --ink: #14181f; --paper: #f6f4ef; --paper-raised: #ffffff;
+    --brass: #a97a35; --slate: #5b6472; --line: #dfdad2;
+    --good: #3f7d58; --warn: #b8862f; --bad: #b3453f;
+    --good-bg: rgba(63,125,88,0.08); --warn-bg: rgba(184,134,47,0.08); --bad-bg: rgba(179,69,63,0.08);
+    --input-bg: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; text-wrap: balance; margin: 0; }
+
+  header.top { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); padding: 18px 28px 0 28px; }
+  .top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark { color: var(--brass); font-size: 22px; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .subtitle { color: var(--slate); font-size: 13px; margin-top: 2px; }
+  .refresh-badge { font-size: 11.5px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .refresh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); flex: none; }
+
+  .filter-row { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .filter-field { display: flex; align-items: center; gap: 7px; }
+  .filter-field label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate); }
+  .filter-field input, .filter-field select {
+    font: inherit; font-size: 13px; padding: 5px 9px; border-radius: 5px;
+    border: 1px solid var(--line); background: var(--input-bg); color: var(--ink);
+  }
+  .filter-field input:focus-visible, .filter-field select:focus-visible, button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+  .filter-reset { background: none; border: 1px solid var(--line); color: var(--slate); border-radius: 5px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .filter-reset:hover { color: var(--ink); border-color: var(--brass); }
+
+  nav.tabs { display: flex; gap: 2px; margin-top: 14px; overflow-x: auto; scrollbar-width: thin; }
+  nav.tabs::-webkit-scrollbar { height: 4px; }
+  nav.tabs button {
+    appearance: none; background: none; border: none; cursor: pointer;
+    font: inherit; font-size: 13.5px; color: var(--slate);
+    padding: 10px 16px; border-bottom: 2px solid transparent; white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button.active { color: var(--ink); border-bottom-color: var(--brass); font-weight: 600; }
+  nav.tabs button .count { color: var(--slate); font-size: 11px; margin-left: 5px; font-family: ui-monospace, monospace; }
+
+  main { padding: 28px; max-width: 1180px; margin: 0 auto; }
+  section.panel { display: none; }
+  section.panel.active { display: block; animation: fade 0.18s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .kpi { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .kpi .label { font-size: 11.5px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi .value { font-size: 30px; font-weight: 600; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .kpi .value.small { font-size: 22px; }
+
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 22px; overflow: hidden; }
+  .card > .card-head { padding: 13px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .card > .card-head h2 { font-size: 15px; }
+  .card > .card-head .note { font-size: 11.5px; color: var(--slate); font-family: -apple-system, sans-serif; }
+  .table-scroll { overflow-x: auto; max-height: 70vh; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 18px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate); font-weight: 600; position: sticky; top: 0; background: var(--paper-raised); cursor: pointer; user-select: none; z-index: 3; }
+  th:hover { color: var(--brass); }
+  /* Freeze first column (row label) and first row (header) together so both stay visible on scroll. */
+  th:first-child, td:first-child { position: sticky; left: 0; background: var(--paper-raised); z-index: 2; }
+  th:first-child { z-index: 4; }
+  tbody tr:hover td:first-child { background: var(--good-bg); }
+  tfoot td:first-child { background: var(--good-bg); }
+  .sort-arrow { font-size: 10px; margin-left: 3px; }
+  .sort-arrow.dim { opacity: 0.35; }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot .totals-row td { font-weight: 700; border-top: 2px solid var(--brass); border-bottom: none; background: var(--good-bg); }
+  tbody tr:hover { background: var(--good-bg); }
+  td.city-cell, th.city-cell { text-align: left; font-weight: 600; }
+  .pct-pill { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 12px; font-weight: 600; font-family: ui-monospace, monospace; }
+  .pct-good { background: var(--good-bg); color: var(--good); }
+  .pct-warn { background: var(--warn-bg); color: var(--warn); }
+  .pct-bad { background: var(--bad-bg); color: var(--bad); }
+  .dim { color: var(--slate); }
+  .spike-cell { display: inline-block; padding: 1px 7px; border-radius: 5px; font-weight: 700; background: var(--warn-bg); color: var(--warn); }
+  .empty-state { padding: 40px 18px; text-align: center; color: var(--slate); font-size: 13.5px; }
+  .caveat { font-size: 12px; color: var(--slate); background: var(--warn-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; line-height: 1.5; }
+  .caveat b { color: var(--warn); }
+  .legend { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .legend-item { font-size: 13px; line-height: 1.55; color: var(--ink); }
+  .legend-item b { color: var(--brass); }
+  .insights { padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .insight-item { font-size: 13px; line-height: 1.5; color: var(--ink); padding-left: 16px; position: relative; }
+  .insight-item::before { content: "→"; position: absolute; left: 0; color: var(--brass); }
+  footer { text-align: center; padding: 30px 20px 40px; color: var(--slate); font-size: 12px; }
+
+  @media (max-width: 640px) {
+    main { padding: 18px 14px; }
+    header.top { padding: 14px 14px 0 14px; }
+    .kpi .value { font-size: 24px; }
+  }
+</style>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <span class="mark">◆</span>
+      <div>
+        <h1>CO Walk-ins Report</h1>
+        <div class="subtitle">Cluster-office walk-in registrations · lead_type = CO_WALKIN · Oro 2.0</div>
+      </div>
+    </div>
+    <div class="refresh-badge"><span class="refresh-dot"></span><span id="refreshedAt">Refreshed —</span></div>
+  </div>
+  <div class="filter-row">
+    <div class="filter-field">
+      <label for="startDate">From</label>
+      <input type="date" id="startDate" />
+    </div>
+    <div class="filter-field">
+      <label for="endDate">To</label>
+      <input type="date" id="endDate" />
+    </div>
+    <button class="filter-reset" id="resetRange">Reset to all-time</button>
+  </div>
+  <nav class="tabs" id="tabBar" role="tablist"></nav>
+</header>
+
+<main id="panels"></main>
+
+<footer>Source: <span class="mono">walkin_lead</span> (Oro 2.0) &amp; <span class="mono">lead</span> / <span class="mono">loan_history</span> (Quali) via Postgres · Auto-refreshed nightly, ready before 7am IST · test/dummy walk-ins excluded</footer>
+
+<script>
+const REFRESHED_AT = "__REFRESHED_AT__";
+
+// One row per real (test/dummy walk-ins already excluded) CO_WALKIN:
+// [cityCode, officeCode, day(YYYY-MM-DD), existingFlag(0=NEW,1=EXISTING), reasonCode, isGoldLoan(0/1),
+//  isRE(0/1), reNameCode(-1 if not RE), completedVia(0=none,1=FRESH,2=TAKEOVER)]
+// Every table in this report derives from this array filtered to the selected date range, so nothing
+// drifts out of sync with the date filter.
+const CITY_LIST = __CITY_LIST__;
+const OFFICE_LIST = __OFFICE_LIST__;
+const RE_NAME_LIST = __RE_NAME_LIST__;
+const REASON_LABELS = __REASON_LABELS__;
+const FOLLOWUP_NEEDED = __FOLLOWUP_NEEDED__;
+const ROWS = __ROWS__;
+
+const ALL_CITIES = ["Hyderabad","Chennai","Bengaluru","Guntur","Karimnagar","Pune","Vijayawada","Warangal"];
+
+// Cluster offices confirmed (against the office master list) to have never logged a single CO walk-in.
+// Not a data-pull gap — these branches simply have zero registrations on record.
+const ZERO_WALKIN_OFFICES = {
+  Hyderabad: ["Bowenpally","Himayathnagar","KPHB 2","Manikonda","Mehdipatnam"],
+  Chennai: ["Porur"],
+  Pune: ["Pimpri"],
+  Vijayawada: ["Patamata"],
+  Warangal: ["Warangal"],
+};
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function fmt(n) { return (n ?? 0).toLocaleString("en-IN"); }
+function pctPillClass(pct) { if (pct >= 50) return "pct-good"; if (pct >= 15) return "pct-warn"; return "pct-bad"; }
+function pct(part, total) { return total ? Math.round((part/total)*1000)/10 : 0; }
+
+function saturdayWeekOfMonth(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  if (d.getDay() !== 6) return null;
+  return Math.ceil(d.getDate() / 7);
+}
+function isTargetSaturday(dateStr) { const w = saturdayWeekOfMonth(dateStr); return w === 2 || w === 4; }
+
+// Spike highlighting: for a given office's full day-by-day history (NOT the date-filtered window — the
+// baseline needs the whole history so a narrow filter doesn't distort what counts as "unusual"), compute
+// that office's own average daily walk-in volume and flag any day at least 2.5x that average.
+function spikeDaysForOffice(days) {
+  const dayKeys = Object.keys(days);
+  const active = dayKeys.filter(d => days[d] > 0);
+  if (active.length < 3) return new Set();
+  const avg = active.reduce((s,d) => s + days[d], 0) / active.length;
+  const threshold = Math.max(avg * 2.5, 4);
+  return new Set(active.filter(d => days[d] >= threshold));
+}
+function monthLabel(ym) { const [y,m] = ym.split("-"); return MONTH_ABBR[parseInt(m,10)-1] + "'" + y.slice(2); }
+function dayLabel(dateStr) { const [,m,dd] = dateStr.split("-"); return parseInt(dd,10) + " " + MONTH_ABBR[parseInt(m,10)-1]; }
+
+const ALL_DAYS = ROWS.map(r => r[2]).sort();
+const MIN_DAY = ALL_DAYS[0];
+const MAX_DAY = ALL_DAYS[ALL_DAYS.length - 1];
+
+let RANGE_START = MIN_DAY;
+let RANGE_END = MAX_DAY;
+
+function rowsInRange() {
+  return ROWS.filter(r => r[2] >= RANGE_START && r[2] <= RANGE_END);
+}
+
+// ---------- Generic sortable table system ----------
+const TABLES = {};
+let tableSeq = 0;
+
+function renderTable(columns, rows, opts = {}) {
+  const tableId = "tbl" + (tableSeq++);
+  TABLES[tableId] = {
+    columns, rows: rows.slice(),
+    sortKey: opts.defaultSortKey || columns[columns.length-1].key,
+    sortDir: opts.defaultSortDir || "desc",
+    showTotals: opts.showTotals !== false && rows.length > 1
+  };
+  return `<div class="table-scroll">${tableMarkup(tableId)}</div>`;
+}
+
+function totalsRowMarkup(tableId) {
+  const t = TABLES[tableId];
+  if (!t.showTotals) return "";
+  return `<tr class="totals-row">${t.columns.map((c,i) => {
+    if (i === 0) return `<td class="city-cell">Total</td>`;
+    if (!c.numeric || /pct$/i.test(c.key)) return `<td></td>`;
+    const sum = t.rows.reduce((s,row) => s + (typeof row[c.key] === "number" ? row[c.key] : 0), 0);
+    return `<td class="mono">${fmt(sum)}</td>`;
+  }).join("")}</tr>`;
+}
+
+function tableMarkup(tableId) {
+  const t = TABLES[tableId];
+  return `<table data-table-id="${tableId}">
+    <thead><tr>${t.columns.map(c => `<th class="${c.first?'city-cell':''}" data-key="${esc(c.key)}">${esc(c.label)}${sortArrow(tableId,c.key)}</th>`).join("")}</tr></thead>
+    <tbody>${renderRows(tableId)}</tbody>
+    <tfoot>${totalsRowMarkup(tableId)}</tfoot>
+  </table>`;
+}
+
+function sortArrow(tableId, key) {
+  const t = TABLES[tableId];
+  if (t.sortKey !== key) return ' <span class="sort-arrow dim">↕</span>';
+  return t.sortDir === "asc" ? ' <span class="sort-arrow">↑</span>' : ' <span class="sort-arrow">↓</span>';
+}
+
+function cmpValues(av, bv, dir) {
+  if (av === null || av === undefined) av = (typeof bv === "number") ? -Infinity : "";
+  if (bv === null || bv === undefined) bv = (typeof av === "number") ? -Infinity : "";
+  if (typeof av === "string" || typeof bv === "string") {
+    return dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  }
+  return dir === "asc" ? av - bv : bv - av;
+}
+
+function renderRows(tableId) {
+  const t = TABLES[tableId];
+  const sorted = t.rows.slice().sort((a,b) => cmpValues(a[t.sortKey], b[t.sortKey], t.sortDir));
+  return sorted.map(row => rowMarkup(t.columns, row)).join("");
+}
+
+function rowMarkup(columns, row) {
+  return `<tr>${columns.map(c => {
+    const raw = row[c.key];
+    if (row["$"+c.key] !== undefined) return `<td class="${c.first?'city-cell':''} ${c.numeric?'mono':''}">${row["$"+c.key]}</td>`;
+    if (raw === null || raw === undefined || raw === "") return `<td class="${c.first?'city-cell':''} ${c.numeric?'mono':''}"><span class="dim">–</span></td>`;
+    return `<td class="${c.first?'city-cell':''} ${c.numeric?'mono':''}">${c.numeric ? fmt(raw) : esc(raw)}</td>`;
+  }).join("")}</tr>`;
+}
+
+function handleSortClick(e) {
+  const th = e.target.closest("th[data-key]");
+  if (!th) return;
+  const table = th.closest("table[data-table-id]");
+  if (!table) return;
+  const tableId = table.dataset.tableId;
+  const key = th.dataset.key;
+  const t = TABLES[tableId];
+  if (t.sortKey === key) t.sortDir = t.sortDir === "asc" ? "desc" : "asc";
+  else { t.sortKey = key; t.sortDir = "desc"; }
+  table.outerHTML = tableMarkup(tableId);
+}
+
+// ---------- Core aggregation (shared by Overview and city tabs) ----------
+// Takes an already-range-filtered slice of ROWS and a predicate to scope to one city (or null for all).
+function summarize(rows) {
+  const total = rows.length;
+  const assigned = rows.filter(r => r[6] === 1).length;
+  const completedFresh = rows.filter(r => r[8] === 1).length;
+  const completedTakeover = rows.filter(r => r[8] === 2).length;
+  return { total, assigned, assignedPct: pct(assigned,total), completed: completedFresh+completedTakeover,
+    completedPct: pct(completedFresh+completedTakeover, total), completedFresh, completedTakeover };
+}
+
+function buildOfficeRows(rows) {
+  const officeMap = {};
+  rows.forEach(r => {
+    const key = r[0] + "|" + r[1];
+    officeMap[key] = officeMap[key] || { cityCode:r[0], officeCode:r[1], city: CITY_LIST[r[0]], office: OFFICE_LIST[r[1]], total:0, new_v:0, existing_v:0, assigned:0, completedFresh:0, completedTakeover:0 };
+    const o = officeMap[key];
+    o.total++;
+    if (r[3] === 1) o.existing_v++; else o.new_v++;
+    if (r[6] === 1) o.assigned++;
+    if (r[8] === 1) o.completedFresh++;
+    if (r[8] === 2) o.completedTakeover++;
+  });
+  return Object.values(officeMap).map(o => ({...o, completed: o.completedFresh+o.completedTakeover}));
+}
+
+// Loan Completed scope: only walk-ins that came in for a NEW GOLD LOAN. Support/service, release, renewal,
+// takeover-servicing and other non-gold-loan reasons are excluded — those aren't fresh lending demand.
+function buildConversion(rows) {
+  const goldRows = rows.filter(r => r[5] === 1);
+  const agg = {};
+  goldRows.forEach(r => {
+    let label;
+    if (r[8] === 1) label = "Loan Completed — Fresh Loan";
+    else if (r[8] === 2) label = "Loan Completed — Takeover";
+    else label = "Not Converted Yet";
+    agg[label] = (agg[label]||0) + 1;
+  });
+  const total = goldRows.length;
+  return { total, breakdown: Object.entries(agg).map(([outcome,count]) => ({outcome, count, pct: pct(count,total)})).sort((a,b)=>b.count-a.count) };
+}
+
+function buildReasons(rows) {
+  const agg = {};
+  rows.forEach(r => {
+    const label = REASON_LABELS[r[4]];
+    agg[label] = agg[label] || { count: 0, followupNeeded: FOLLOWUP_NEEDED[r[4]] };
+    agg[label].count++;
+  });
+  const total = rows.length;
+  return Object.entries(agg).map(([reason,v]) => ({reason, count:v.count, followupNeeded:v.followupNeeded, pct: pct(v.count,total)})).sort((a,b)=>b.count-a.count);
+}
+
+function buildRePerformance(rows) {
+  const agg = {};
+  rows.filter(r => r[6] === 1 && r[7] >= 0).forEach(r => {
+    const name = RE_NAME_LIST[r[7]];
+    agg[name] = agg[name] || { assigned: 0, completedFresh: 0, completedTakeover: 0 };
+    agg[name].assigned++;
+    if (r[8] === 1) agg[name].completedFresh++;
+    if (r[8] === 2) agg[name].completedTakeover++;
+  });
+  return Object.entries(agg).map(([name,v]) => ({name, ...v, completed: v.completedFresh+v.completedTakeover})).sort((a,b)=>b.assigned-a.assigned);
+}
+
+function reasonTableFromRows(rows) {
+  const reasonsTotal = rows.length;
+  const reasons = buildReasons(rows);
+  return renderTable(
+    [{key:"reason", label:"Reason (purposeOfVisit)", first:true}, {key:"count", label:"Walk-ins", numeric:true}, {key:"pct", label:"% of Total", numeric:true}, {key:"followupNeeded", label:"Follow-up Needed?"}],
+    reasons.map(r => ({...r,
+      ["$followupNeeded"]: r.followupNeeded ? `<span class="pct-pill pct-good">Yes</span>` : `<span class="pct-pill pct-bad">No</span>`})),
+    {defaultSortKey:"count"}
+  );
+}
+
+function conversionTableFromRows(rows) {
+  const conv = buildConversion(rows);
+  if (!conv.total) return `<div class="empty-state">No new-gold-loan walk-ins in this range.</div>`;
+  return renderTable(
+    [{key:"outcome", label:"Outcome", first:true}, {key:"count", label:"Walk-ins", numeric:true}, {key:"pct", label:"% of Total", numeric:true}],
+    conv.breakdown, {defaultSortKey:"count"}
+  );
+}
+
+function rePerformanceTableFromRows(rows) {
+  const perf = buildRePerformance(rows);
+  if (!perf.length) return `<div class="empty-state">No named RE currently owns a walk-in lead in this range.</div>`;
+  return renderTable(
+    [{key:"name", label:"RE Name", first:true}, {key:"assigned", label:"Currently Assigned", numeric:true},
+     {key:"completed", label:"Loan Completed", numeric:true}, {key:"completedFresh", label:"Fresh", numeric:true},
+     {key:"completedTakeover", label:"Takeover", numeric:true}],
+    perf, {defaultSortKey:"assigned"}
+  );
+}
+
+// ---------- City-level insight generator ----------
+// Surfaces the handful of things worth a human glancing at, computed fresh from the filtered rows —
+// so these read differently as the date range changes, same as every table.
+function buildInsights(rows, cityLabel) {
+  const insights = [];
+  if (!rows.length) return insights;
+  const total = rows.length;
+  const reasons = buildReasons(rows);
+  const notSpecified = reasons.find(r => r.reason === "Not Specified / Other");
+  if (notSpecified && notSpecified.pct >= 90) {
+    insights.push(`Almost no walk-in in ${cityLabel} has a real reason tagged — ${notSpecified.pct}% fall under "Not Specified / Other." Branch staff aren't filling in purpose of visit here, so the Reasons table below isn't telling you much yet.`);
+  } else if (notSpecified && notSpecified.pct >= 40) {
+    insights.push(`${notSpecified.pct}% of ${cityLabel}'s walk-ins have no real reason tagged ("Not Specified / Other") — worth a reminder to branch staff to fill this in at the counter.`);
+  }
+  if (reasons.length && reasons[0].reason !== "Not Specified / Other") {
+    insights.push(`"${reasons[0].reason}" is the single biggest reason people walk in (${reasons[0].pct}% of ${fmt(total)}).`);
+  }
+  const s = summarize(rows);
+  if (s.assignedPct < 15 && total >= 10) {
+    insights.push(`Only ${s.assignedPct}% of walk-ins are currently owned by a branch RE — most get routed to a centralized calling team instead of staying with the branch that met the customer.`);
+  }
+  const conv = buildConversion(rows);
+  if (conv.total >= 5) {
+    const completedGold = conv.breakdown.filter(b => b.outcome.startsWith("Loan Completed")).reduce((sum,b)=>sum+b.count,0);
+    insights.push(`Of ${fmt(conv.total)} walk-ins that came in for a new gold loan, ${pct(completedGold, conv.total)}% have gone on to complete one.`);
+  }
+  return insights;
+}
+
+function insightsHTML(rows, cityLabel) {
+  const insights = buildInsights(rows, cityLabel);
+  if (!insights.length) return "";
+  return `<div class="card"><div class="card-head"><h2>Insights</h2><span class="note">Recomputed for the selected date range</span></div>
+    <div class="insights">${insights.map(i => `<div class="insight-item">${i}</div>`).join("")}</div></div>`;
+}
+
+// ---------- Rendering ----------
+function overviewHTML(rows) {
+  if (!rows.length) return `<div class="empty-state">No CO walk-ins recorded in the selected date range.</div>`;
+  const s = summarize(rows);
+  const officeRows = buildOfficeRows(rows);
+  const cityRows = Object.values(officeRows.reduce((m,o) => {
+    m[o.city] = m[o.city] || { city:o.city, total:0, new_v:0, existing_v:0, assigned:0, completedFresh:0, completedTakeover:0 };
+    const c = m[o.city];
+    c.total += o.total; c.new_v += o.new_v; c.existing_v += o.existing_v; c.assigned += o.assigned;
+    c.completedFresh += o.completedFresh; c.completedTakeover += o.completedTakeover;
+    return m;
+  }, {})).map(c => ({...c, completed: c.completedFresh+c.completedTakeover, assignedPct: pct(c.assigned,c.total), completedPct: pct(c.completedFresh+c.completedTakeover,c.total)}))
+    .sort((a,b) => b.total - a.total);
+
+  const cityTable = renderTable(
+    [{key:"city", label:"City", first:true}, {key:"total", label:"Walk-ins", numeric:true},
+     {key:"assigned", label:"With Branch RE", numeric:true}, {key:"assignedPct", label:"% With Branch RE", numeric:true},
+     {key:"completed", label:"Loan Completed", numeric:true}, {key:"completedPct", label:"% Loan Completed", numeric:true},
+     {key:"completedFresh", label:"Fresh", numeric:true}, {key:"completedTakeover", label:"Takeover", numeric:true}],
+    cityRows.map(r => ({...r,
+      ["$assignedPct"]: `<span class="pct-pill ${pctPillClass(r.assignedPct)}">${r.assignedPct}%</span>`,
+      ["$completedPct"]: `<span class="pct-pill ${pctPillClass(r.completedPct)}">${r.completedPct}%</span>`})),
+    {defaultSortKey:"total"}
+  );
+
+  const topOffices = officeRows.map(o => ({...o, assignedPct: pct(o.assigned,o.total), completedPct: pct(o.completed,o.total)})).sort((a,b) => b.total - a.total).slice(0,10);
+  const officeTable = renderTable(
+    [{key:"office", label:"Office", first:true}, {key:"city", label:"City"}, {key:"total", label:"Total", numeric:true},
+     {key:"new_v", label:"New", numeric:true}, {key:"existing_v", label:"Existing", numeric:true},
+     {key:"assigned", label:"With Branch RE", numeric:true}, {key:"assignedPct", label:"% With Branch RE", numeric:true},
+     {key:"completed", label:"Loan Completed", numeric:true}, {key:"completedPct", label:"% Loan Completed", numeric:true},
+     {key:"completedFresh", label:"Fresh", numeric:true}, {key:"completedTakeover", label:"Takeover", numeric:true}],
+    topOffices.map(r => ({...r,
+      ["$assignedPct"]: `<span class="pct-pill ${pctPillClass(r.assignedPct)}">${r.assignedPct}%</span>`,
+      ["$completedPct"]: `<span class="pct-pill ${pctPillClass(r.completedPct)}">${r.completedPct}%</span>`})),
+    {defaultSortKey:"total"}
+  );
+
+  const nveTable = renderTable(
+    [{key:"city", label:"City", first:true}, {key:"new_v", label:"New", numeric:true},
+     {key:"existing_v", label:"Existing", numeric:true}, {key:"total_v", label:"Total", numeric:true}],
+    cityRows.map(c => ({city:c.city, new_v:c.new_v, existing_v:c.existing_v, total_v:c.new_v+c.existing_v})), {defaultSortKey:"total_v"}
+  );
+
+  // Spike highlighting baseline uses each city's FULL history regardless of the date filter.
+  const dayTrendMap = {};
+  rows.forEach(r => { dayTrendMap[CITY_LIST[r[0]]] = dayTrendMap[CITY_LIST[r[0]]] || {}; dayTrendMap[CITY_LIST[r[0]]][r[2]] = (dayTrendMap[CITY_LIST[r[0]]][r[2]]||0)+1; });
+  const allDayKeys = Array.from(new Set(Object.values(dayTrendMap).flatMap(m => Object.keys(m)))).sort().slice(-14);
+  const dayCols = [{key:"city", label:"City", first:true}, ...allDayKeys.map(k => ({key:k, label:dayLabel(k) + (isTargetSaturday(k) ? " ★" : ""), numeric:true})), {key:"_total", label:"Total", numeric:true}];
+  const dayRows = cityRows.map(c => {
+    const fullHistoryDays = {};
+    ROWS.filter(r => CITY_LIST[r[0]] === c.city).forEach(r => { fullHistoryDays[r[2]] = (fullHistoryDays[r[2]]||0) + 1; });
+    const spikeDays = spikeDaysForOffice(fullHistoryDays);
+    const row = {city: c.city};
+    let rowTotal = 0;
+    allDayKeys.forEach(k => {
+      const v = (dayTrendMap[c.city]||{})[k] || 0;
+      row[k] = v || null;
+      if (v) row["$"+k] = spikeDays.has(k) ? `<span class="spike-cell" title="Unusually high vs ${c.city}'s usual daily average">${fmt(v)}</span>` : fmt(v);
+      rowTotal += v;
+    });
+    row._total = rowTotal;
+    return row;
+  });
+  const dayTrendTable = renderTable(dayCols, dayRows, {defaultSortKey:"_total"});
+
+  return `
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Total walk-ins</div><div class="value">${fmt(s.total)}</div></div>
+      <div class="kpi"><div class="label">% With Branch RE</div><div class="value">${s.assignedPct}%</div></div>
+      <div class="kpi"><div class="label">% Loan Completed (gold loan only)</div><div class="value">${buildConversion(rows).total ? pct(buildConversion(rows).breakdown.filter(b=>b.outcome.startsWith('Loan Completed')).reduce((s,b)=>s+b.count,0), buildConversion(rows).total) : 0}%</div></div>
+      <div class="kpi"><div class="label">Cities active</div><div class="value small">${cityRows.length}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Walk-ins by city</h2><span class="note">Selected range · click headers to sort</span></div>
+      ${cityTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Top cluster offices</h2><span class="note">Top 10 by volume, selected range</span></div>
+      ${officeTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Daily trend by city</h2><span class="note">Most recent 14 days in range · ★ = 2nd/4th Saturday event day</span></div>
+      ${dayTrendTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Loan Completed — did the walk-in become a loan?</h2><span class="note">New-gold-loan walk-ins only · requires a traceable OMGL id</span></div>
+      ${conversionTableFromRows(rows)}
+      <div class="caveat" style="margin:0 18px 16px;">Scoped to walk-ins whose reason was a <b>new gold loan</b> — support requests, releases, renewals, top-ups, and other servicing visits are excluded since they aren't fresh lending demand. Within that scope, "Loan Completed" only counts a lead if there's a real, traceable OMGL id behind it.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>New vs existing visitors</h2></div>
+      ${nveTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Reasons for walk-in</h2><span class="note">Selected range · similar reasons grouped together</span></div>
+      ${reasonTableFromRows(rows)}
+    </div>
+  `;
+}
+
+function cityHTML(rows, cityLabel) {
+  const cityRows = rows.filter(r => CITY_LIST[r[0]] === cityLabel);
+  if (!cityRows.length) {
+    const zeroOffices = ZERO_WALKIN_OFFICES[cityLabel] || [];
+    const allTimeZero = zeroOffices.length && !ROWS.some(r => CITY_LIST[r[0]] === cityLabel);
+    return `<div class="kpi-row"><div class="kpi"><div class="label">Total walk-ins</div><div class="value">0</div></div></div>
+      <div class="empty-state">No CO walk-in registrations recorded for ${esc(cityLabel)} in this range.${allTimeZero ? ` This city's office(s) (${zeroOffices.join(", ")}) have never logged a CO walk-in — confirmed against the office master list, not a data gap.` : ""}</div>`;
+  }
+  const s = summarize(cityRows);
+  const officeRows = buildOfficeRows(cityRows).sort((a,b) => b.total - a.total);
+
+  const officeTable = renderTable(
+    [{key:"office", label:"Office", first:true}, {key:"total", label:"Total", numeric:true}, {key:"new_v", label:"New", numeric:true},
+     {key:"existing_v", label:"Existing", numeric:true}, {key:"assigned", label:"With Branch RE", numeric:true}, {key:"assignedPct", label:"% With Branch RE", numeric:true},
+     {key:"completed", label:"Loan Completed", numeric:true}, {key:"completedPct", label:"% Loan Completed", numeric:true},
+     {key:"completedFresh", label:"Fresh", numeric:true}, {key:"completedTakeover", label:"Takeover", numeric:true}],
+    officeRows.map(o => ({...o, assignedPct: pct(o.assigned,o.total), completedPct: pct(o.completed,o.total),
+      ["$assignedPct"]: `<span class="pct-pill ${pctPillClass(pct(o.assigned,o.total))}">${pct(o.assigned,o.total)}%</span>`,
+      ["$completedPct"]: `<span class="pct-pill ${pctPillClass(pct(o.completed,o.total))}">${pct(o.completed,o.total)}%</span>`})),
+    {defaultSortKey:"total"}
+  );
+
+  // MoM: derived from the date-filtered rows too, same as everything else in this report.
+  const momMap = {}, monthSet = new Set();
+  cityRows.forEach(r => {
+    const office = OFFICE_LIST[r[1]], ym = r[2].slice(0,7);
+    monthSet.add(ym);
+    momMap[office] = momMap[office] || {};
+    momMap[office][ym] = (momMap[office][ym] || 0) + 1;
+  });
+  const months = Array.from(monthSet).sort();
+  const momCols = [{key:"office", label:"Office", first:true}, ...months.map(m => ({key:m, label:monthLabel(m), numeric:true})), {key:"_total", label:"Total", numeric:true}];
+  const momRows = Object.keys(momMap).map(office => {
+    const row = {office};
+    let rowTotal = 0;
+    months.forEach(m => { const v = momMap[office][m] || 0; row[m] = v || null; rowTotal += v; });
+    row._total = rowTotal;
+    return row;
+  });
+  const momTable = renderTable(momCols, momRows, {defaultSortKey:"_total"});
+
+  // Spike highlighting baseline: this office's FULL history, not the filtered window.
+  const cityOfficeFullDayMap = {};
+  ROWS.filter(r => CITY_LIST[r[0]] === cityLabel).forEach(r => {
+    const office = OFFICE_LIST[r[1]];
+    cityOfficeFullDayMap[office] = cityOfficeFullDayMap[office] || {};
+    cityOfficeFullDayMap[office][r[2]] = (cityOfficeFullDayMap[office][r[2]] || 0) + 1;
+  });
+  const dayMap = {};
+  cityRows.forEach(r => { const office = OFFICE_LIST[r[1]]; dayMap[office] = dayMap[office] || {}; dayMap[office][r[2]] = (dayMap[office][r[2]]||0)+1; });
+  const dayKeys = Array.from(new Set(Object.values(dayMap).flatMap(o => Object.keys(o)))).sort();
+  const dailyCols = [{key:"office", label:"Office", first:true}, ...dayKeys.map(k => ({key:k, label:dayLabel(k) + (isTargetSaturday(k) ? " ★" : ""), numeric:true})), {key:"_total", label:"Total", numeric:true}];
+  const dailyRows = officeRows.map(o => {
+    const days = dayMap[o.office] || {};
+    const spikeDays = spikeDaysForOffice(cityOfficeFullDayMap[o.office] || {});
+    const row = {office:o.office};
+    let rowTotal = 0;
+    dayKeys.forEach(k => {
+      const v = days[k] || 0;
+      row[k] = v || null;
+      if (v) row["$"+k] = spikeDays.has(k) ? `<span class="spike-cell" title="Unusually high vs ${esc(o.office)}'s usual daily average">${fmt(v)}</span>` : fmt(v);
+      rowTotal += v;
+    });
+    row._total = rowTotal;
+    return row;
+  }).filter(r => r._total > 0);
+  const dailyTable = dayKeys.length ? renderTable(dailyCols, dailyRows, {defaultSortKey:"_total"}) : `<div class="empty-state">No days with activity in this range.</div>`;
+
+  return `
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Total walk-ins</div><div class="value">${fmt(s.total)}</div></div>
+      <div class="kpi"><div class="label">% With Branch RE</div><div class="value">${s.assignedPct}%</div></div>
+      <div class="kpi"><div class="label">% Loan Completed (gold loan only)</div><div class="value">${buildConversion(cityRows).total ? pct(buildConversion(cityRows).breakdown.filter(b=>b.outcome.startsWith('Loan Completed')).reduce((s,b)=>s+b.count,0), buildConversion(cityRows).total) : 0}%</div></div>
+      <div class="kpi"><div class="label">Offices reporting</div><div class="value small">${officeRows.length}</div></div>
+    </div>
+    ${insightsHTML(cityRows, cityLabel)}
+    <div class="card">
+      <div class="card-head"><h2>Walk-ins by office</h2><span class="note">Selected range · click headers to sort</span></div>
+      ${officeTable}
+      ${(ZERO_WALKIN_OFFICES[cityLabel]||[]).length ? `<div class="caveat" style="margin:0 18px 16px;">${(ZERO_WALKIN_OFFICES[cityLabel]||[]).length === 1 ? "This office isn't" : "These offices aren't"} listed above because ${(ZERO_WALKIN_OFFICES[cityLabel]||[]).length === 1 ? "it has" : "they have"} never logged a CO walk-in: <b>${esc((ZERO_WALKIN_OFFICES[cityLabel]||[]).join(", "))}</b>. Confirmed against the office master list — a genuine usage gap, not a data pull issue.</div>` : ""}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Month-over-month walk-ins</h2><span class="note">Selected range</span></div>
+      ${momTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Daily walk-ins by office</h2><span class="note">Days in selected range · ★ = 2nd/4th Saturday event day</span></div>
+      ${dailyTable}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Loan Completed — did the walk-in become a loan?</h2><span class="note">New-gold-loan walk-ins only · requires a traceable OMGL id</span></div>
+      ${conversionTableFromRows(cityRows)}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>RE performance</h2><span class="note">Named branch REs only · selected range</span></div>
+      ${rePerformanceTableFromRows(cityRows)}
+      <div class="caveat" style="margin:0 18px 16px;"><b>"Currently Assigned"</b> only counts walk-ins whose lead is presently owned by that specific RE — it is NOT the total number of walk-ins at their branch. Most walk-ins get auto-routed to a centralized Digital/TCN calling team instead of the branch RE (see "% With Branch RE" above for the full split), so these numbers will look small next to the branch's total walk-in count. That's expected, not missing data.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Reasons for walk-in</h2><span class="note">Selected range · similar reasons grouped together</span></div>
+      ${reasonTableFromRows(cityRows)}
+    </div>
+  `;
+}
+
+const TABS = [
+  {id:"overview", label:"Overview", render: (rows) => overviewHTML(rows)},
+  ...ALL_CITIES.map(c => ({id:c.toLowerCase(), label:c, render:(rows) => cityHTML(rows, c)})),
+];
+
+const tabBar = document.getElementById("tabBar");
+const panelsRoot = document.getElementById("panels");
+let activeTabId = "overview";
+
+function tabCount(id) {
+  if (!ALL_CITIES.some(c => c.toLowerCase() === id)) return null;
+  const rows = rowsInRange().filter(r => CITY_LIST[r[0]].toLowerCase() === id);
+  return rows.length;
+}
+
+function renderAll() {
+  const rows = rowsInRange();
+  tabBar.innerHTML = "";
+  panelsRoot.innerHTML = "";
+  TABS.forEach(t => {
+    const btn = document.createElement("button");
+    btn.textContent = t.label;
+    btn.dataset.tab = t.id;
+    const c = tabCount(t.id);
+    if (c !== null) {
+      const span = document.createElement("span");
+      span.className = "count"; span.textContent = fmt(c);
+      btn.appendChild(span);
+    }
+    if (t.id === activeTabId) btn.classList.add("active");
+    btn.addEventListener("click", () => { activeTabId = t.id; renderAll(); });
+    tabBar.appendChild(btn);
+  });
+
+  const panel = document.createElement("section");
+  panel.className = "panel active";
+  const activeTab = TABS.find(t => t.id === activeTabId);
+  panel.innerHTML = activeTab.render(rows);
+  panelsRoot.appendChild(panel);
+}
+
+panelsRoot.addEventListener("click", handleSortClick);
+
+const startInput = document.getElementById("startDate");
+const endInput = document.getElementById("endDate");
+startInput.value = RANGE_START; endInput.value = RANGE_END;
+startInput.min = MIN_DAY; startInput.max = MAX_DAY;
+endInput.min = MIN_DAY; endInput.max = MAX_DAY;
+
+startInput.addEventListener("change", () => { RANGE_START = startInput.value || MIN_DAY; renderAll(); });
+endInput.addEventListener("change", () => { RANGE_END = endInput.value || MAX_DAY; renderAll(); });
+document.getElementById("resetRange").addEventListener("click", () => {
+  RANGE_START = MIN_DAY; RANGE_END = MAX_DAY;
+  startInput.value = MIN_DAY; endInput.value = MAX_DAY;
+  renderAll();
+});
+
+document.getElementById("refreshedAt").textContent = "Refreshed " + REFRESHED_AT;
+renderAll();
+</script>
