@@ -1,0 +1,425 @@
+<title>SP Rubric — Full Report</title>
+<style>
+:root {
+  --paper: #FAF8F4; --surface: #FFFFFF; --surface-2: #F3EFE6;
+  --ink: #1C1917; --ink-2: #57503E; --ink-3: #766D5B;
+  --line: #E2DAC8; --line-strong: #C9BFA8;
+  --gold: #8F6200; --gold-bright: #E0A82E; --gold-tint: #F4E9CD;
+  --warn: #96351E; --warn-tint: #F6E4DD;
+  --good: #3E6B33; --good-tint: #E9F0E4;
+  --calm: #41527A; --calm-tint: #E8ECF4;
+  --fd: ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --fm: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"] {
+  --paper: #16140F; --surface: #1D1A13; --surface-2: #241F16;
+  --ink: #EDE8DC; --ink-2: #B9B09B; --ink-3: #8A8270;
+  --line: #33301F; --line-strong: #453F27;
+  --gold: #E0A82E; --gold-bright: #E0A82E; --gold-tint: #332A14;
+  --warn: #D97757; --warn-tint: #3A2018;
+  --good: #7FB86C; --good-tint: #1E2A17;
+  --calm: #8FA3D6; --calm-tint: #1A2030;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #16140F; --surface: #1D1A13; --surface-2: #241F16;
+    --ink: #EDE8DC; --ink-2: #B9B09B; --ink-3: #8A8270;
+    --line: #33301F; --line-strong: #453F27;
+    --gold: #E0A82E; --gold-bright: #E0A82E; --gold-tint: #332A14;
+    --warn: #D97757; --warn-tint: #3A2018;
+    --good: #7FB86C; --good-tint: #1E2A17;
+    --calm: #8FA3D6; --calm-tint: #1A2030;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--fd); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 78rem; margin-inline: auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
+.label { font-family: var(--fm); font-size: .72rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+header { padding: 1.25rem 0 1rem; border-bottom: 1px solid var(--line); }
+.mrow { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+h1 { font-family: Charter, Georgia, serif; font-size: 1.55rem; font-weight: 620; margin: .5rem 0 0; }
+h2 { font-size: 1.05rem; font-weight: 620; margin: 0 0 .75rem; }
+.marker { display: block; font-family: var(--fm); font-size: .72rem; letter-spacing: .06em; color: var(--gold); margin-bottom: .5rem; }
+.marker::after { content: ""; display: block; width: 2rem; height: 1px; background: var(--gold); margin-top: .4rem; }
+section { padding: 2rem 0 .5rem; }
+.filters { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; padding: 1rem 0; }
+select { font-family: var(--fd); font-size: .9rem; padding: .4rem .6rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); }
+#status { font-family: var(--fm); font-size: .72rem; color: var(--ink-3); }
+p { color: var(--ink-2); margin: 0 0 .9rem; max-width: 66ch; }
+strong { color: var(--ink); }
+code { font-family: var(--fm); background: var(--surface-2); padding: .05rem .35rem; border-radius: 4px; font-size: .88em; }
+
+.monthpicker, .citytabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.monthpicker label { display: inline-flex; align-items: center; gap: .35rem; font-size: .82rem; border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .7rem; cursor: pointer; background: var(--surface); }
+.monthpicker label:has(input:checked) { background: var(--gold-tint); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+.monthpicker input { accent-color: var(--gold); }
+.citytab { font-size: .82rem; border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .8rem; cursor: pointer; background: var(--surface); color: var(--ink-2); }
+.citytab.active { background: var(--gold-tint); border-color: var(--gold); color: var(--gold); font-weight: 650; }
+
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 1rem; margin: 1rem 0; }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.stat { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: .9rem 1rem; }
+.stat b { display: block; font-size: 1.5rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat.gold b { color: var(--gold); } .stat.warn b { color: var(--warn); } .stat.good b { color: var(--good); }
+.stat span { display: block; font-size: .75rem; color: var(--ink-3); margin-top: .25rem; line-height: 1.35; }
+
+.tbox { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: .5rem 0 1rem; }
+table { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th { text-align: left; font-family: var(--fm); font-size: .64rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: .7rem .9rem .45rem; border-bottom: 1px solid var(--line-strong); }
+td { padding: .5rem .9rem; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+tr:hover td { background: var(--surface-2); }
+.num { font-family: var(--fm); font-size: .8rem; }
+.chip { display: inline-block; font-family: var(--fm); font-size: .62rem; font-weight: 600; letter-spacing: .04em; padding: .1rem .45rem; border-radius: 4px; }
+.chip.g { background: var(--good-tint); color: var(--good); }
+.chip.w { background: var(--gold-tint); color: var(--gold); }
+.chip.r { background: var(--warn-tint); color: var(--warn); }
+.chip.n { background: var(--calm-tint); color: var(--calm); }
+.caption { font-size: .78rem; color: var(--ink-3); max-width: 66rem; margin: .25rem 0 0; }
+
+.callout { border: 1px solid var(--line-strong); border-left: 3px solid var(--warn); border-radius: 8px; background: var(--warn-tint); padding: .9rem 1.1rem; margin: .5rem 0 1.25rem; }
+.callout p { margin: 0; max-width: none; color: var(--ink); }
+.callout p + p { margin-top: .5rem; }
+
+.figwrap { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 1rem; overflow-x: auto; margin: .5rem 0 1rem; }
+.plot { position: relative; width: 100%; aspect-ratio: 1.8/1; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.plot .bar-line { position: absolute; background: var(--line-strong); }
+.plot .quad-label { position: absolute; font-family: var(--fm); font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.plot .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%,50%); opacity: .85; cursor: pointer; }
+.plot .dot.r { background: var(--warn); } .plot .dot.w { background: var(--gold); } .plot .dot.n { background: var(--calm); } .plot .dot.g { background: var(--good); }
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; margin: .75rem 0 0; font-size: .78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.dotkey { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dotkey.r { background: var(--warn); } .dotkey.w { background: var(--gold); } .dotkey.n { background: var(--calm); } .dotkey.g { background: var(--good); }
+
+/* tooltip */
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--paper); font-size: .78rem; padding: .35rem .6rem; border-radius: 6px; z-index: 50; display: none; font-family: var(--fd); white-space: nowrap; }
+:root[data-theme="dark"] #tip { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line-strong); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #tip { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line-strong); } }
+
+footer { border-top: 1px solid var(--line); margin-top: 2.5rem; padding: 1.5rem 0 3rem; font-size: .8rem; color: var(--ink-2); }
+a { color: var(--gold); }
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="mrow">
+      <span class="label">Oro · SP scoring</span>
+      <span class="label"><a href="https://sp-scoring-site.vercel.app/thresholds.html" style="text-decoration:none;">Tier-1 rubric doc →</a></span>
+    </div>
+    <h1>SP rubric — full report</h1>
+    <div class="filters">
+      <div>
+        <span class="label" style="display:block;margin-bottom:.35rem;">Months (pick any)</span>
+        <div id="fMonth" class="monthpicker">
+          <label><input type="checkbox" value="2026-01"> Jan-26</label>
+          <label><input type="checkbox" value="2026-02"> Feb-26</label>
+          <label><input type="checkbox" value="2026-03"> Mar-26</label>
+          <label><input type="checkbox" value="2026-04"> Apr-26</label>
+          <label><input type="checkbox" value="2026-05"> May-26</label>
+          <label><input type="checkbox" value="2026-06"> Jun-26</label>
+          <label><input type="checkbox" value="2026-07" checked> Jul-26 (MTD)</label>
+        </div>
+      </div>
+      <div>
+        <span class="label" style="display:block;margin-bottom:.35rem;">City</span>
+        <div id="fCity" class="citytabs"></div>
+      </div>
+      <span id="status">Sales Table (22 Jul) ⋈ Quali-prod.lead · 60 active, Tier-1 SPs (Bengaluru/Hyderabad/Pune, no tenure minimum)</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section id="rulesSec">
+  <span class="marker">01 · Rules of scoring</span>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Metric</th><th>Definition</th><th>Target</th></tr></thead>
+      <tbody>
+        <tr><td>Cx Met</td><td>Every visit for the SP (any lead source — not restricted to self-sourced leads) whose status reaches: VISIT_COMPLETED_GL, VISIT_COMPLETED_BRL, MAY_TXN, VISIT_CANCELLED_NIAM, VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR, VISIT_CANCELLED_CC</td><td>6 / day</td></tr>
+        <tr><td>Callable leads</td><td>Self-sourced only: <code>lead_source</code> or <code>appointment_booked_by</code> matches the SP's own identity (email or name) — verified against <code>created_by_oro_id</code>, not the broad "any lead this SP touched" definition. (This narrower definition applies only to the leads-submitted count, not to Cx Met above.)</td><td>2 leads = 1 Cx Met</td></tr>
+        <tr><td>Daily cap</td><td>Per SP, per calendar day: <code>min(Cx Met that day + leads that day ÷ 2, 6)</code>. A day cannot contribute more than 6 units no matter how many leads are submitted — this stops a burst of low-effort lead submissions from inflating the monthly effort score</td><td>≤ 6 / day, then summed for the month</td></tr>
+        <tr><td>Effort score</td><td>Sum of daily-capped units for the month ÷ (6 × working days)</td><td>≥ 50% clears the effort bar</td></tr>
+        <tr><td>Visits raised</td><td>Lead or its linked visit reaches: VISIT_COMPLETED_BRL, VISIT_COMPLETED_GL, VISIT_CANCELLED_CC</td><td>40% of Cx Met</td></tr>
+        <tr><td>Loan completion</td><td>Visit's <code>loan_number</code> field populated (an OMGL-format loan account id, e.g. <code>OMGL41596102</code>) on a visit that also reached Visits Raised status, ÷ Visits Raised. (The <code>C- Loan Completed</code> checkbox flag was found to be unreliable — see footer note — and is no longer used.)</td><td>80% of visits raised</td></tr>
+        <tr><td>Quality score</td><td>Average of (visit % ÷ 40%) and (loan rate ÷ 80%), each capped at 100% before averaging so quality can never read above 100%</td><td>≥ 50% clears the quality bar</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays (no holiday calendar available). July is month-to-date through 22 Jul (19 working days).</p>
+</section>
+
+<section id="orgSec">
+  <span class="marker">02 · Org view — month over month</span>
+  <div class="stats" id="orgStats"></div>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Month</th><th>SPs active</th><th>Leads submitted</th><th>Cx Met</th><th>Visits raised</th><th>Visit %</th></tr></thead>
+      <tbody id="orgTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above.</p>
+</section>
+
+<section id="citySec">
+  <span class="marker">02b · City comparison — avg Cx Met, visit raised %, loan completion %</span>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>City</th><th>SP-months</th><th>Avg Cx Met</th><th>Visit raised %</th><th>Loan completion %</th></tr></thead>
+      <tbody id="cityTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the months selected above (not filtered by the city tab, so all cities are always shown side by side). Visit raised % and loan completion % are pooled rates (sum raised ÷ sum Cx Met; sum loans ÷ sum raised), not a simple average of per-SP percentages.</p>
+</section>
+
+<section id="quadSec">
+  <span class="marker">03 · Effort × quality — the four quadrants</span>
+  <div class="figwrap">
+    <div class="plot" id="plot"></div>
+  </div>
+  <p class="caption">Each dot is one SP — totals summed across the selected months, then rescored, same as the leaderboard below (so an SP appears in exactly one quadrant, never split across quadrants when multiple months are selected). Hover a dot for the SP's name. Vertical = effort (daily-capped Cx Met + leads÷2, vs 6/day). Horizontal = quality (visit % vs 40% target, blended with loan rate vs 80%). Lines at 50% of each. A visit-raised floor overrides the quadrant: any SP with visit-raised % below 35% is classified At Risk regardless of effort or quality — high effort does not offset a visit-raised rate this low. Its dot is plotted inside the At-risk box itself (not at its raw effort/quality position), so a dot's box always matches its color.</p>
+  <div class="legend">
+    <span><i class="dotkey r"></i>At risk — below both, or visit-raised % under 35% floor</span>
+    <span><i class="dotkey w"></i>Coaching — effort ok, quality short</span>
+    <span><i class="dotkey n"></i>Push volume — quality ok, effort short</span>
+    <span><i class="dotkey g"></i>Star — clears both</span>
+  </div>
+</section>
+
+<section id="lbSec">
+  <span class="marker">04 · Leaderboard</span>
+  <div class="tbox">
+    <table>
+      <thead><tr>
+        <th>SP</th><th>City</th><th>Leads</th><th>Cx Met</th><th>Raised</th><th>Visit %</th><th>Loans</th><th>Loan rate</th><th>Effort %</th><th>Quality %</th><th>Zone</th>
+      </tr></thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above. Sorted by quality %, descending. One row per SP — totals summed across selected months, then rescored. SP scoped to your current-active roster (Employee ID list) matched via the Sales Table's <code>Emp_id</code> column, Bengaluru/Hyderabad/Pune only — 60 active SPs, no minimum tenure requirement (the earlier ≥6-month tenure filter has been removed, adding back 11 SPs who were previously excluded for being under 6 months).</p>
+</section>
+
+</div>
+
+<div id="tip"></div>
+
+<footer>
+  <div class="wrap">
+    Data: identity, city, active/inactive status, tenure (Working Months), Cx Met, Visits Raised, and Loan Completed all come from the "Latest Sales Table - July 22" workbook (41,259 visit-level rows), cross-checked against the current-active Employee ID roster you supplied. Cx Met and Visits Raised count every visit for the SP regardless of lead source. Leads submitted = self-sourced leads only, from <code>Quali-prod.lead</code>: a lead counts if <code>created_by_oro_id</code> matches the SP AND <code>lead_source</code> is their own <code>@orocorp.in</code> email, OR <code>appointment_booked_by</code> exactly matches their name — verified against your dashboard's city/month totals (broad-vs-self-sourced definitions differ by roughly 2x; self-sourced is the narrower, correct one). Effort is capped per day at 6 units (<code>min(met + leads÷2, 6)</code>) before being summed into the month, so a burst of leads on one day can no longer push a whole month over 100%. Scope: active SPs, Bengaluru/Hyderabad/Pune only (no minimum tenure requirement — this filter was removed; 11 SPs previously excluded for under 6 months are now included), Jan–Jul 2026 (Jul is MTD through 22 Jul). Working days = calendar days minus Sundays only (no holiday calendar). Chennai is excluded from this rubric — Chennai SPs don't receive company-provided appointments, so this effort/quality model doesn't fit their work and needs its own rule set.
+    <br><br>
+    Loan completion note: the workbook's <code>C- Loan Completed</code> checkbox is stale — org-wide it is set on only ~18% of visits that already have a real loan account id (<code>loan_number</code>, formatted like <code>OMGL41596102</code>) attached, and for July it was blank on all 145 such visits despite loans clearly having been booked. Loan completion in this report is therefore counted directly off <code>loan_number</code>: a visit counts as a completed loan if it reached Visits Raised status (VISIT_COMPLETED_BRL / VISIT_COMPLETED_GL / VISIT_CANCELLED_CC) AND has a non-blank <code>loan_number</code>, matched via the workbook's <code>Agent Auth ID</code> and <code>Appointment Month</code> columns. This raised the roster-wide loan count from 375 to 2,019 across Jan–Jul, and from 0 to 77 for July MTD.
+  </div>
+</footer>
+
+<script id="raw-data" type="application/json">
+[["2525","2026-01",9,26,24,18,30.5],["2525","2026-02",29,22,21,12,36.5],["2525","2026-03",206,13,12,9,103.5],["2525","2026-04",259,10,8,7,106],["2525","2026-05",329,13,9,8,120.5],["2525","2026-06",361,17,7,5,137.5],["2525","2026-07",268,13,6,4,94.5],["5537","2026-01",88,47,24,15,85],["5537","2026-02",44,50,27,16,65],["5537","2026-03",308,26,7,5,111],["5537","2026-04",382,26,9,5,143],["5537","2026-05",288,33,9,7,131],["5537","2026-06",412,19,4,1,142.5],["5537","2026-07",292,8,0,0,96.5],["33792","2026-01",1,17,11,10,17.5],["33792","2026-02",4,24,14,14,26],["33792","2026-03",2,19,10,8,20],["33792","2026-04",5,13,9,8,15.5],["33792","2026-05",1,14,6,4,14.5],["33792","2026-06",3,22,8,8,23.5],["33792","2026-07",3,9,4,2,10.5],["33799","2026-01",3,12,9,9,13.5],["33799","2026-02",5,18,10,9,20.5],["33799","2026-03",9,21,13,13,25.5],["33799","2026-04",4,19,5,5,21],["33799","2026-05",3,18,7,6,19.5],["33799","2026-06",1,10,5,5,10.5],["33799","2026-07",2,3,2,2,4],["43896","2026-01",102,26,7,6,66],["43896","2026-02",106,23,11,9,55.5],["43896","2026-03",380,28,6,4,112.5],["43896","2026-04",255,12,2,2,79],["43896","2026-05",175,21,6,6,67.5],["43896","2026-06",293,19,8,7,86.5],["43896","2026-07",162,11,2,1,35],["46963","2026-01",56,25,13,11,43],["46963","2026-02",78,26,13,11,43],["46963","2026-03",16,19,8,6,25],["46963","2026-04",3,26,11,9,27.5],["46963","2026-05",3,26,10,10,27.5],["46963","2026-06",10,20,7,7,25],["46963","2026-07",116,8,0,0,24],["47546","2026-01",1,4,3,3,4.5],["47546","2026-02",3,21,11,11,22.5],["47546","2026-03",2,20,13,10,21],["47546","2026-04",3,14,8,8,15.5],["47546","2026-05",2,16,6,3,17],["47546","2026-06",5,20,8,7,22.5],["47546","2026-07",5,9,0,0,11.5],["47917","2026-01",67,26,14,11,59],["47917","2026-02",24,30,17,14,42],["47917","2026-03",116,19,11,10,66.5],["47917","2026-04",82,17,6,5,56.5],["47917","2026-05",30,17,3,2,31.5],["47917","2026-06",28,13,4,3,27],["47917","2026-07",61,7,1,1,33],["50323","2026-01",15,23,18,14,30.5],["50323","2026-02",16,27,16,12,34.5],["50323","2026-03",19,25,9,8,34.5],["50323","2026-04",23,26,9,7,36.5],["50323","2026-05",6,26,18,13,29],["50323","2026-06",4,17,6,2,19],["50323","2026-07",58,14,4,3,20],["52077","2026-01",6,26,15,13,29],["52077","2026-02",6,23,14,11,26],["52077","2026-03",7,24,11,10,27.5],["52077","2026-04",3,19,10,5,20.5],["52077","2026-05",2,17,9,6,18],["52077","2026-06",1,14,2,2,14.5],["52077","2026-07",9,16,4,3,20.5],["53219","2026-01",0,6,2,2,6],["53219","2026-02",0,1,0,0,1],["53219","2026-03",0,4,1,1,4],["53219","2026-04",1,5,3,2,5.5],["53219","2026-05",0,1,0,0,1],["53219","2026-06",0,0,0,0,0],["57102","2026-01",103,21,12,9,67],["57102","2026-02",53,19,9,6,43],["57102","2026-03",196,27,13,9,87],["57102","2026-04",258,13,6,4,76.5],["57102","2026-05",63,11,7,6,35],["57102","2026-06",46,10,5,5,29.5],["57102","2026-07",98,5,2,0,42.5],["60846","2026-01",79,12,9,9,51.5],["60846","2026-02",68,17,10,10,50],["60846","2026-03",13,25,12,11,31.5],["60846","2026-04",11,52,9,7,57],["60846","2026-05",3,33,11,11,34.5],["60846","2026-06",1,30,8,7,30.5],["60846","2026-07",1,19,7,6,19.5],["63747","2026-01",44,28,15,13,47.5],["63747","2026-02",20,32,17,14,42],["63747","2026-03",70,17,12,9,49],["63747","2026-04",33,21,8,8,37],["63747","2026-05",4,17,11,11,19],["63747","2026-06",15,13,5,5,20.5],["63747","2026-07",64,15,6,6,38],["63751","2026-01",40,32,15,14,49.5],["63751","2026-02",24,29,20,18,38],["63751","2026-03",19,22,11,10,31.5],["63751","2026-04",28,18,5,4,32],["63751","2026-05",2,27,8,7,28],["63751","2026-06",1,16,4,4,16.5],["63751","2026-07",61,13,4,3,27],["63754","2026-01",20,17,14,13,27],["63754","2026-02",4,16,12,8,18],["63754","2026-03",79,20,13,11,51.5],["63754","2026-04",35,27,13,11,42.5],["63754","2026-05",3,28,11,10,29.5],["63754","2026-06",6,20,12,10,23],["63754","2026-07",134,10,2,2,57.5],["63986","2026-01",13,16,9,7,22.5],["63986","2026-02",2,19,8,7,20],["63986","2026-03",63,17,7,5,42.5],["63986","2026-04",19,19,12,8,27],["63986","2026-05",3,16,11,8,17.5],["63986","2026-06",4,15,8,4,17],["63986","2026-07",51,12,5,3,37.5],["64250","2026-01",0,14,10,8,14],["64250","2026-02",2,16,8,6,17],["64250","2026-03",1,9,6,6,9.5],["64250","2026-04",0,17,7,3,17],["64250","2026-05",2,19,6,5,20],["64250","2026-06",1,18,10,9,18.5],["64250","2026-07",18,7,3,1,16],["64382","2026-01",5,13,9,9,15.5],["64382","2026-02",8,23,12,11,27],["64382","2026-03",14,19,10,9,26],["64382","2026-04",2,11,7,6,12],["64382","2026-05",6,15,7,6,18],["64382","2026-06",5,18,8,8,20.5],["64382","2026-07",1,3,0,0,3.5],["65516","2026-01",6,20,13,12,23],["65516","2026-02",4,16,9,9,18],["65516","2026-03",6,16,11,10,19],["65516","2026-04",4,10,7,6,12],["65516","2026-05",1,17,3,2,17.5],["65516","2026-06",4,16,7,6,18],["65516","2026-07",120,7,2,2,59],["66203","2026-01",90,32,13,10,58.5],["66203","2026-02",150,28,8,5,85.5],["66203","2026-03",194,12,6,6,91.5],["66203","2026-04",241,12,6,5,95],["66203","2026-05",229,20,3,3,93],["66203","2026-06",475,20,2,2,112],["66203","2026-07",205,5,0,0,69.5],["66789","2026-01",2,10,10,9,11],["66789","2026-02",4,12,12,9,14],["66789","2026-03",2,10,9,9,11],["66789","2026-04",3,6,6,3,7.5],["66789","2026-05",0,7,6,6,7],["66789","2026-06",2,6,5,4,7],["66789","2026-07",8,7,0,0,11],["66790","2026-01",18,30,20,14,39],["66790","2026-02",4,23,11,8,25],["66790","2026-03",8,22,8,5,26],["66790","2026-04",5,16,12,11,18.5],["66790","2026-05",1,12,6,6,12.5],["66790","2026-06",2,14,5,2,15],["66790","2026-07",18,9,5,3,18],["68968","2026-01",2,11,7,3,12],["68968","2026-02",2,18,18,15,19],["68968","2026-03",1,8,8,6,8.5],["68968","2026-04",2,9,9,6,10],["68968","2026-05",1,13,11,8,13.5],["68968","2026-06",4,6,5,4,8],["68968","2026-07",15,0,0,0,7.5],["70462","2026-01",1,13,9,8,13.5],["70462","2026-02",2,16,10,9,17],["70462","2026-03",0,12,6,3,12],["70462","2026-04",0,6,3,2,6],["70462","2026-05",3,17,8,5,18.5],["70462","2026-06",3,14,2,2,15.5],["70462","2026-07",4,6,2,1,8],["72083","2026-01",4,13,9,8,15],["72083","2026-02",1,12,6,5,12.5],["72083","2026-03",3,8,3,2,9.5],["72083","2026-04",2,6,4,4,7],["72083","2026-05",0,8,2,1,8],["72083","2026-06",4,10,6,3,12],["72083","2026-07",7,7,1,1,10.5],["72107","2026-01",117,16,7,7,69.5],["72107","2026-02",89,26,12,8,62.5],["72107","2026-03",281,26,11,5,101],["72107","2026-04",375,18,7,5,122.5],["72107","2026-05",191,30,10,7,73],["72107","2026-06",109,16,5,3,54.5],["72107","2026-07",69,11,0,0,34],["72222","2026-01",18,23,12,9,32],["72222","2026-02",2,23,19,16,24],["72222","2026-03",15,20,8,7,27.5],["72222","2026-04",10,10,6,3,15],["72222","2026-05",3,17,5,4,18.5],["72222","2026-06",3,18,4,4,19.5],["72222","2026-07",5,9,3,2,11.5],["72503","2026-01",163,6,5,4,62.5],["72503","2026-02",234,14,10,9,90],["72503","2026-03",244,11,4,2,109],["72503","2026-04",268,8,4,4,109],["72503","2026-05",230,20,4,2,90],["72503","2026-06",391,8,2,2,131],["72503","2026-07",214,6,2,1,72],["73112","2026-01",100,17,8,8,39.5],["73112","2026-02",151,19,11,11,76.5],["73112","2026-03",291,21,7,7,95.5],["73112","2026-04",392,8,2,2,109],["73112","2026-05",97,14,3,1,40.5],["73112","2026-06",280,12,3,1,78.5],["73112","2026-07",171,5,2,1,43.5],["73286","2026-01",101,16,14,8,52.5],["73286","2026-02",80,24,15,7,54.5],["73286","2026-03",200,22,6,4,82],["73286","2026-04",270,36,9,6,104],["73286","2026-05",184,31,10,6,85.5],["73286","2026-06",420,7,3,2,72],["73286","2026-07",186,5,1,1,49.5],["73462","2026-01",205,15,13,9,67],["73462","2026-02",224,13,10,9,81],["73462","2026-03",343,7,3,3,113.5],["73462","2026-04",413,16,7,4,129],["73462","2026-05",359,12,9,4,78],["73462","2026-06",314,18,3,1,76],["73462","2026-07",202,7,1,0,41],["73897","2026-01",164,33,24,20,90.5],["73897","2026-02",93,36,25,19,76],["73897","2026-03",111,14,11,10,56],["73897","2026-04",13,16,15,11,22.5],["73897","2026-05",39,23,21,14,41.5],["73897","2026-06",13,11,11,8,17.5],["73897","2026-07",8,10,3,1,14],["76922","2026-01",190,14,14,12,109],["76922","2026-02",131,13,10,10,78],["76922","2026-03",231,25,9,9,123],["76922","2026-04",219,44,6,5,121.5],["76922","2026-05",213,33,17,15,121.5],["76922","2026-06",27,23,7,6,36.5],["76922","2026-07",2,9,2,0,10],["77098","2026-01",35,14,10,9,27],["77098","2026-02",17,20,13,12,27],["77098","2026-03",62,14,5,4,43.5],["77098","2026-04",83,18,5,5,46],["77098","2026-05",44,16,7,5,35.5],["77098","2026-06",45,12,4,3,33],["77098","2026-07",124,7,1,1,43.5],["77107","2026-01",0,9,9,8,9],["77107","2026-02",1,6,6,4,6.5],["77107","2026-03",2,0,0,0,1],["77107","2026-04",1,0,0,0,0.5],["77107","2026-05",6,0,0,0,3],["77107","2026-06",3,0,0,0,1.5],["77107","2026-07",10,0,0,0,5],["77431","2026-01",4,11,10,10,13],["77431","2026-02",3,23,7,7,24.5],["77431","2026-03",10,21,8,6,26],["77431","2026-04",1,18,4,4,18.5],["77431","2026-05",4,11,9,6,13],["77431","2026-06",3,16,7,7,17.5],["77431","2026-07",67,7,1,1,30.5],["77460","2026-01",3,15,14,14,16.5],["77460","2026-02",2,14,14,11,15],["77460","2026-03",1,11,10,8,11.5],["77460","2026-04",7,10,5,3,13.5],["77460","2026-05",4,20,7,6,22],["77460","2026-06",1,16,6,5,16.5],["77460","2026-07",62,16,5,5,46.5],["77463","2026-01",2,17,14,14,18],["77463","2026-02",1,12,10,9,12.5],["77463","2026-03",34,16,9,7,33],["77463","2026-04",0,16,6,5,16],["77463","2026-05",1,18,12,11,18.5],["77463","2026-06",5,23,6,6,25.5],["77463","2026-07",10,15,2,2,20],["77467","2026-01",152,14,8,7,52.5],["77467","2026-02",61,15,5,3,27.5],["77467","2026-03",1,11,4,1,11.5],["77467","2026-04",4,13,6,5,15],["77467","2026-05",1,17,3,3,17.5],["77467","2026-06",12,12,3,2,16.5],["77467","2026-07",15,8,2,1,15.5],["77470","2026-01",38,6,4,3,22.5],["77470","2026-02",0,7,5,4,7],["77470","2026-03",19,6,3,1,12.5],["77470","2026-04",0,6,4,4,6],["77470","2026-05",0,8,4,4,8],["77470","2026-06",9,12,7,7,16.5],["77470","2026-07",5,5,0,0,7.5],["77477","2026-01",67,8,4,4,19],["77477","2026-02",38,17,6,6,23.5],["77477","2026-03",1,13,1,1,13.5],["77477","2026-04",2,13,3,3,14],["77477","2026-05",1,19,2,2,19.5],["77477","2026-06",14,25,7,7,32],["77477","2026-07",32,8,4,4,24],["77480","2026-01",186,1,1,0,73.5],["77480","2026-02",283,13,9,3,115],["77480","2026-03",474,13,6,5,144.5],["77480","2026-04",466,19,9,5,147],["77480","2026-05",381,0,0,0,117.5],["77480","2026-06",437,20,5,1,138],["77480","2026-07",259,13,1,1,89],["77587","2026-01",144,4,2,1,60.5],["77587","2026-02",216,10,6,5,85],["77587","2026-03",235,6,3,2,96],["77587","2026-04",252,10,4,3,109.5],["77587","2026-05",250,10,4,3,92.5],["77587","2026-06",372,11,4,3,134],["77587","2026-07",241,8,0,0,71],["77616","2026-01",225,9,7,6,71.5],["77616","2026-02",229,12,6,5,89.5],["77616","2026-03",215,10,5,3,81],["77616","2026-04",263,13,5,5,104],["77616","2026-05",261,6,4,4,76],["77616","2026-06",391,9,0,0,94],["77616","2026-07",145,4,2,1,34],["78233","2026-01",65,19,8,8,43],["78233","2026-02",21,28,13,9,35.5],["78233","2026-03",37,20,11,8,30],["78233","2026-04",3,13,8,7,14.5],["78233","2026-05",2,27,5,3,28],["78233","2026-06",14,23,8,8,28.5],["78233","2026-07",219,9,2,2,50],["78493","2026-01",33,10,7,5,26.5],["78493","2026-02",17,20,13,10,28.5],["78493","2026-03",26,10,5,5,22],["78493","2026-04",16,15,3,3,21],["78493","2026-05",13,15,7,7,21.5],["78493","2026-06",45,16,5,4,34.5],["78493","2026-07",18,3,0,0,12],["82065","2026-02",42,20,10,9,37],["82065","2026-03",83,12,8,8,44.5],["82065","2026-04",169,12,7,5,58],["82065","2026-05",169,9,7,7,89.5],["82065","2026-06",61,9,5,4,37],["82065","2026-07",45,10,5,4,30.5],["82483","2026-01",2,0,0,0,1],["82483","2026-02",32,1,1,1,15.5],["82483","2026-03",58,3,3,2,31],["82483","2026-04",1,2,2,2,2.5],["82483","2026-05",1,3,3,3,3.5],["82483","2026-06",51,8,8,8,33.5],["82483","2026-07",33,2,2,2,17],["84332","2026-01",0,0,0,0,0],["84332","2026-02",1,5,5,5,5.5],["84332","2026-03",3,12,11,6,13.5],["84332","2026-04",1,10,10,4,10.5],["84332","2026-05",6,11,10,7,14],["84332","2026-06",3,13,8,6,14.5],["84332","2026-07",10,11,5,3,16],["84320","2026-05",9,6,4,2,10.5],["84320","2026-06",155,8,3,2,49.5],["84333","2026-04",58,11,4,3,39.5],["84333","2026-05",6,11,6,5,14],["84333","2026-06",33,12,1,0,26],["84333","2026-07",199,7,1,1,46.5],["89925","2026-04",0,1,0,0,1],["89925","2026-05",0,0,0,0,0],["89925","2026-06",0,0,0,0,0],["90721","2026-02",0,1,1,1,1],["90721","2026-04",0,2,0,0,2],["90721","2026-05",19,8,4,4,14.5],["90721","2026-06",34,14,6,6,20],["90721","2026-07",116,9,1,0,47.5],["90723","2026-04",0,0,0,0,0],["90723","2026-05",7,14,10,9,17.5],["90723","2026-06",25,20,11,11,28.5],["90723","2026-07",84,8,3,3,35.5],["90741","2026-02",0,0,0,0,0],["90741","2026-05",130,3,1,1,62],["90741","2026-06",367,13,4,1,129],["90741","2026-07",254,9,1,1,87.5],["92067","2026-05",105,0,0,0,30.5],["92067","2026-06",338,8,4,4,126.5],["92067","2026-07",164,3,1,1,63],["92952","2026-04",0,1,0,0,1],["92952","2026-05",0,5,2,1,5],["92952","2026-06",264,9,1,1,110.5],["92952","2026-07",78,12,3,3,49.5],["93151","2026-05",0,0,0,0,0],["93151","2026-06",235,2,2,0,49],["93151","2026-07",168,8,5,3,48.5],["93448","2026-06",297,14,3,2,100.5],["93448","2026-07",212,12,3,3,86],["93655","2026-04",0,1,0,0,1],["93655","2026-05",0,2,0,0,2],["93655","2026-06",104,3,3,3,43.5],["93655","2026-07",98,10,2,2,57]]
+</script>
+<script id="identity-data" type="application/json">
+[["2525","Sridhar S","Bengaluru"],["5537","Ramachari Nv","Bengaluru"],["33792","Vuda Narayana Rao","Hyderabad"],["33799","Kembhasaram Pavan Kumar","Hyderabad"],["43896","Nagarjuna N","Bengaluru"],["46963","Anugula Pranith Kumar Reddy","Hyderabad"],["47546","Ganta Ayyappa Swamy","Hyderabad"],["47917","Madapa Anil","Hyderabad"],["50323","Angothu Narendar","Hyderabad"],["52077","Gummadi Ramesh","Hyderabad"],["53219","Sreedhar Kamitin","Hyderabad"],["57102","M Manigandan","Bengaluru"],["60846","Pakhare Yuvraj Balasaheb","Pune"],["63747","Guguloth Venkatesh","Hyderabad"],["63751","Ramagiri Sunil","Hyderabad"],["63754","Tanneeru Vijay Kumar","Hyderabad"],["63986","Bitla Naresh","Hyderabad"],["64250","Shaik Sajid Ali","Hyderabad"],["64382","Paspulla Karthik","Hyderabad"],["65516","Sanjeev P","Hyderabad"],["66203","Imran S","Bengaluru"],["66789","Kashireddy Uday Kiran Reddy","Hyderabad"],["66790","Bijja Vijaya Kumar","Hyderabad"],["68968","Srimalla Naresh","Hyderabad"],["70462","Medida Praveen Kumar","Hyderabad"],["72083","Chinthalathadem Sai Kiran","Hyderabad"],["72107","Tejas V","Bengaluru"],["72222","Ramavath Naga","Hyderabad"],["72503","Nanjunda F Talwar","Bengaluru"],["73112","Arun Kumar","Bengaluru"],["73286","Pavan Kumar S","Bengaluru"],["73462","Nandisha A N","Bengaluru"],["73897","Sarvesh Manoj Dalu","Pune"],["76922","Vaibhav Tukaram Shirure","Pune"],["77098","Tarun Prem Khemlani","Hyderabad"],["77107","Devaraju J","Hyderabad"],["77431","Banda Sampath Kumar","Hyderabad"],["77460","Shaik Khaja Mohiddin","Hyderabad"],["77463","Bankh Srikanth Reddy","Hyderabad"],["77467","Chillukamari Sridhar","Hyderabad"],["77470","Yerukala Uday Kiran","Hyderabad"],["77477","Banapuram Venkata Sai","Hyderabad"],["77480","Pavan Kumar Reddy M","Bengaluru"],["77587","Kashif Khan","Bengaluru"],["77616","Ajmal Khan","Bengaluru"],["78233","Jonak Vamshi","Hyderabad"],["78493","Tumalapalli Chandrashekar","Hyderabad"],["82065","Swapnil Tonde","Pune"],["82483","Gowtham B","Chennai"],["84332","Devaraju J","Hyderabad"],["84320","Srikanth K","Bengaluru"],["84333","Gerapramod K","Hyderabad"],["89925","Nagaraja C","Bengaluru"],["90721","Nikhil M","Hyderabad"],["90723","Nagaraju K","Hyderabad"],["90741","Praveen S","Bengaluru"],["92067","Tejas Vg","Pune"],["92952","Sumit Rk","Pune"],["93151","Ambarisha V","Bengaluru"],["93448","Harshad Sa","Pune"],["93655","Aniketgopal S","Pune"]]
+</script>
+<script>
+const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,leads,cx_met,visits_raised,loan_completed,capped])=>({agent,month,leads,cx_met,visits_raised,loan_completed,capped: capped==null ? (cx_met+leads/2) : capped}));
+const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
+const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
+const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
+function nameFor(id){ return NAME_BY_ID.get(id) || id; }
+function cityFor(id){ return CITY_MAP.get(id) || 'Unknown'; }
+const WD = {'2026-01':27,'2026-02':24,'2026-03':26,'2026-04':26,'2026-05':26,'2026-06':26,'2026-07':19};
+const MONTH_LABEL = {'2026-01':'Jan-26','2026-02':'Feb-26','2026-03':'Mar-26','2026-04':'Apr-26','2026-05':'May-26','2026-06':'Jun-26','2026-07':'Jul-26 (MTD)'};
+const CITIES = ['All','Bengaluru','Hyderabad','Pune'];
+let activeCity = 'All';
+
+function classify(e,q,raisePct){ if(raisePct!==undefined && raisePct<35) return'r'; const E=e>=50,Q=q>=50; if(E&&Q)return'g'; if(E&&!Q)return'w'; if(!E&&Q)return'n'; return'r'; }
+const ZONE_LABEL = {r:'At risk', w:'Coaching', n:'Push volume', g:'Star'};
+
+const SCORED = RAW.map(r => {
+  const wd = WD[r.month];
+  const effortPct = (r.capped/(6*wd))*100;
+  const raiseRate = r.cx_met>0 ? r.visits_raised/r.cx_met : 0;
+  const raiseAch = r.cx_met>0 ? (raiseRate/0.40)*100 : 0;
+  const loanRate = r.visits_raised>0 ? r.loan_completed/r.visits_raised : 0;
+  const loanAch = r.visits_raised>0 ? (loanRate/0.80)*100 : null;
+  // Each achievement ratio is capped at 100% before averaging, so quality can
+  // never read above 100% (an SP converting well past target shouldn't be able
+  // to push the blended score over the ceiling on the other axis too).
+  const raiseAchCapped = Math.min(raiseAch, 100);
+  const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
+  const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
+  return {...r, city: cityFor(r.agent), effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct,raiseRate*100)};
+}).filter(r => CITIES.includes(r.city));
+
+function selectedMonths(){
+  const checked = [...document.querySelectorAll('#fMonth input[type=checkbox]:checked')].map(c=>c.value);
+  return checked.length ? checked : Object.keys(WD);
+}
+
+function renderCityTabs(){
+  const el = document.getElementById('fCity');
+  el.innerHTML = CITIES.map(c => `<button class="citytab${c===activeCity?' active':''}" data-city="${c}">${c}</button>`).join('');
+  el.querySelectorAll('.citytab').forEach(btn => btn.addEventListener('click', () => { activeCity = btn.dataset.city; render(); }));
+}
+
+function renderOrgTable(months, cityFilter){
+  const rows = months.slice().sort().map(m => {
+    let list = SCORED.filter(r => r.month === m);
+    if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
+    const sps = new Set(list.map(r=>r.agent)).size;
+    const leads = list.reduce((s,r)=>s+r.leads,0);
+    const met = list.reduce((s,r)=>s+r.cx_met,0);
+    const raised = list.reduce((s,r)=>s+r.visits_raised,0);
+    return {m, sps, leads, met, raised, rate: met>0 ? (raised/met*100) : 0};
+  });
+  document.getElementById('orgTableBody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${MONTH_LABEL[r.m]}</td>
+      <td class="num">${r.sps}</td>
+      <td class="num">${r.leads.toLocaleString()}</td>
+      <td class="num">${r.met.toLocaleString()}</td>
+      <td class="num">${r.raised.toLocaleString()}</td>
+      <td class="num">${r.rate.toFixed(0)}%</td>
+    </tr>
+  `).join('');
+}
+
+function renderCityCompareTable(months){
+  const list = SCORED.filter(r => months.includes(r.month) && r.city !== 'Unknown');
+  const byCity = new Map();
+  list.forEach(r => {
+    const cur = byCity.get(r.city) || {city:r.city, n:0, met:0, raised:0, loans:0};
+    cur.n++; cur.met += r.cx_met; cur.raised += r.visits_raised; cur.loans += r.loan_completed;
+    byCity.set(r.city, cur);
+  });
+  const rows = [...byCity.values()].sort((a,b) => (b.raised/b.met) - (a.raised/a.met));
+  document.getElementById('cityTableBody').innerHTML = rows.map(c => `
+    <tr>
+      <td>${c.city}</td>
+      <td class="num">${c.n}</td>
+      <td class="num">${(c.met/c.n).toFixed(1)}</td>
+      <td class="num">${c.met>0 ? (c.raised/c.met*100).toFixed(0) : 0}%</td>
+      <td class="num">${c.raised>0 ? (c.loans/c.raised*100).toFixed(0) : 0}%</td>
+    </tr>
+  `).join('');
+}
+
+function render(){
+  renderCityTabs();
+  const months = selectedMonths();
+  renderCityCompareTable(months);
+  let rows = SCORED.filter(r => months.includes(r.month));
+  if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
+
+  // Aggregate to one row per SP across the selected months (same totals-then-rescore
+  // logic used by the leaderboard) so a single SP occupies exactly one quadrant,
+  // never multiple, when several months are selected.
+  const byAgent = new Map();
+  rows.forEach(r => {
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, leads:0, cx_met:0, visits_raised:0, loan_completed:0, capped:0, wd:0};
+    cur.leads += r.leads; cur.cx_met += r.cx_met; cur.visits_raised += r.visits_raised; cur.loan_completed += r.loan_completed; cur.capped += r.capped; cur.wd += WD[r.month];
+    byAgent.set(r.agent, cur);
+  });
+  const agg = [...byAgent.values()].map(a => {
+    const effortPct = (a.capped/(6*a.wd))*100;
+    const raiseRate = a.cx_met>0 ? a.visits_raised/a.cx_met : 0;
+    const raiseAch = a.cx_met>0 ? (raiseRate/0.40)*100 : 0;
+    const loanRate = a.visits_raised>0 ? a.loan_completed/a.visits_raised : 0;
+    const loanAch = a.visits_raised>0 ? (loanRate/0.80)*100 : null;
+    // Each achievement ratio is capped at 100% before averaging, so quality can
+  // never read above 100% (an SP converting well past target shouldn't be able
+  // to push the blended score over the ceiling on the other axis too).
+  const raiseAchCapped = Math.min(raiseAch, 100);
+  const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
+  const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
+    return {...a, effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct,raiseRate*100)};
+  });
+
+  const n = agg.length;
+  const quad = {g:0,w:0,n:0,r:0};
+  let sE=0, sQ=0, totalLeads=0, totalMet=0, totalRaised=0;
+  agg.forEach(r=>{ quad[r.zone]++; sE+=r.effortPct; sQ+=r.qualityPct; totalLeads+=r.leads; totalMet+=r.cx_met; totalRaised+=r.visits_raised; });
+
+  document.getElementById('orgStats').innerHTML = `
+    <div class="stat"><b>${n}</b><span>SPs (filtered)</span></div>
+    <div class="stat"><b>${totalLeads.toLocaleString()}</b><span>leads submitted</span></div>
+    <div class="stat"><b>${totalMet.toLocaleString()}</b><span>customers met</span></div>
+    <div class="stat gold"><b>${totalRaised.toLocaleString()}</b><span>visits raised</span></div>
+    <div class="stat"><b>${n?(sQ/n).toFixed(0):0}%</b><span>avg quality (visit %)</span></div>
+    <div class="stat warn"><b>${n?(quad.r/n*100).toFixed(0):0}%</b><span>at risk</span></div>
+  `;
+  renderOrgTable(months, activeCity);
+
+  const plot = document.getElementById('plot');
+  plot.innerHTML = '';
+  const vbar = document.createElement('div');
+  vbar.className='bar-line'; vbar.style.cssText='left:50%;top:0;bottom:0;width:1px;';
+  const hbar = document.createElement('div');
+  hbar.className='bar-line'; hbar.style.cssText='top:50%;left:0;right:0;height:1px;';
+  plot.appendChild(vbar); plot.appendChild(hbar);
+  const lbl=(t,x,y)=>{const d=document.createElement('div');d.className='quad-label';d.textContent=t;d.style.left=x;d.style.top=y;plot.appendChild(d);};
+  // x = quality (left=low, right=high), y = effort (top=high, bottom=low)
+  lbl('At risk','10px','calc(100% - 20px)');
+  lbl('Coaching','10px','8px');
+  lbl('Push volume','calc(100% - 96px)','calc(100% - 20px)');
+  lbl('Star','calc(100% - 44px)','8px');
+
+  // Spread dots across each half of the plot by within-half rank, rather than raw
+  // value (which clusters at 0% / far-over-100% since both metrics are skewed).
+  // The 50% split line stays exact; only placement *within* a half is rank-based.
+  function spreadPositions(values){
+    const lower = values.map((v,i)=>({v,i})).filter(o=>o.v<50).sort((a,b)=>a.v-b.v);
+    const upper = values.map((v,i)=>({v,i})).filter(o=>o.v>=50).sort((a,b)=>a.v-b.v);
+    const pos = new Array(values.length);
+    lower.forEach((o,rank)=>{ pos[o.i] = lower.length>1 ? (rank/(lower.length-1))*46 + 2 : 25; });
+    upper.forEach((o,rank)=>{ pos[o.i] = upper.length>1 ? (rank/(upper.length-1))*46 + 52 : 75; });
+    return pos;
+  }
+  // The visit-raised floor can force zone 'r' even when raw effort/quality would
+  // otherwise land elsewhere on the grid. Position must always match the assigned
+  // zone (color), so any SP classified 'r' is plotted in the At-risk box regardless
+  // of its raw values — otherwise a red dot could appear inside the Star/Coaching box.
+  const plotQuality = agg.map(r => r.zone==='r' ? Math.min(r.qualityPct,49) : r.qualityPct);
+  const plotEffort = agg.map(r => r.zone==='r' ? Math.min(r.effortPct,49) : r.effortPct);
+  const xPositions = spreadPositions(plotQuality);
+  const yPositions = spreadPositions(plotEffort);
+
+  const tip = document.getElementById('tip');
+  agg.forEach((r,i)=>{
+    const x = xPositions[i];
+    const y = yPositions[i];
+    const d = document.createElement('div');
+    d.className = 'dot '+r.zone;
+    d.style.left = x+'%'; d.style.bottom = y+'%';
+    d.addEventListener('mousemove', (e) => {
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX+14)+'px';
+      tip.style.top = (e.clientY+14)+'px';
+      tip.textContent = `${nameFor(r.agent)} · ${r.city} · effort ${r.effortPct.toFixed(0)}% · quality ${r.qualityPct.toFixed(0)}%`;
+    });
+    d.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    plot.appendChild(d);
+  });
+
+  // Leaderboard: same one-row-per-SP aggregation computed above.
+  const sorted = [...agg].sort((a,b)=>b.qualityPct-a.qualityPct);
+  document.getElementById('lbBody').innerHTML = sorted.map(r=>`
+    <tr>
+      <td>${nameFor(r.agent)}</td>
+      <td>${r.city}</td>
+      <td class="num">${r.leads}</td>
+      <td class="num">${r.cx_met}</td>
+      <td class="num">${r.visits_raised}</td>
+      <td class="num">${(r.raiseRate*100).toFixed(0)}%</td>
+      <td class="num">${r.loan_completed}</td>
+      <td class="num">${(r.loanRate*100).toFixed(0)}%</td>
+      <td class="num">${r.effortPct.toFixed(0)}%</td>
+      <td class="num">${r.qualityPct.toFixed(0)}%</td>
+      <td><span class="chip ${r.zone}">${ZONE_LABEL[r.zone]}</span></td>
+    </tr>
+  `).join('');
+}
+document.querySelectorAll('#fMonth input[type=checkbox]').forEach(c=>c.addEventListener('change', render));
+render();
+</script>
+
