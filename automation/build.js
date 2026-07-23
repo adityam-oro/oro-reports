@@ -101,6 +101,7 @@ async function main() {
   // walkin_lead.mobile_number is a bare 10-digit string; users.mobile_number is stored as '+91XXXXXXXXXX'.
   // Match on that, restricted to CUSTOMER users, then look up their loans by customer_auth_id and use
   // loans.orocorp_approved_at (best-populated live "loan happened" timestamp) as the completion event.
+  // loans.loan_subtype classifies the completion as Fresh vs Takeover (see COMPLETION_TYPE_BY_WALKIN_ID below).
   console.log('Fetching customer users + loans from Oro 2.0 for conversion detection...');
   const mobileSet = new Set();
   wl.forEach(r => {
@@ -135,7 +136,7 @@ async function main() {
   for (const batch of chunk(authIds, 400)) {
     const inList = batch.map(a => `'${a}'`).join(',');
     const q = `
-      SELECT customer_auth_id, orocorp_approved_at
+      SELECT customer_auth_id, orocorp_approved_at, loan_subtype
       FROM loans
       WHERE customer_auth_id IN (${inList}) AND orocorp_approved_at IS NOT NULL
     `;
@@ -144,12 +145,13 @@ async function main() {
   }
   console.log(`  ${loanRows.length} approved loans for matched customers`);
 
-  // auth_id -> list of approved_at timestamps
+  // auth_id -> list of { time: approved_at, subtype: loan_subtype } objects.
+  // loan_subtype = 'TAKEOVER' -> Takeover; NULL/'DC'/'RENEWAL_LOAN'/'TOPUP_LOAN' (all rare) -> Fresh.
   const loansByAuthId = {};
   loanRows.forEach(r => {
     if (!r[0] || !r[1]) return;
     loansByAuthId[r[0]] = loansByAuthId[r[0]] || [];
-    loansByAuthId[r[0]].push(r[1]);
+    loansByAuthId[r[0]].push({ time: r[1], subtype: r[2] });
   });
 
   // Group walk-ins by mobile number, then greedily pair each loan with its single nearest-preceding
@@ -166,27 +168,29 @@ async function main() {
   });
 
   const CONVERTED_IDS = new Set();
+  const COMPLETION_TYPE_BY_WALKIN_ID = new Map(); // walk-in id -> 'FRESH' | 'TAKEOVER'
   Object.keys(walkinsByMobile).forEach(mobile => {
     const authId = authIdByMobile[mobile];
     if (!authId) return;
-    const loanTimes = loansByAuthId[authId];
-    if (!loanTimes || !loanTimes.length) return;
+    const loanEntries = loansByAuthId[authId];
+    if (!loanEntries || !loanEntries.length) return;
 
     const walkins = walkinsByMobile[mobile].slice().sort((a, b) => a.created_at.localeCompare(b.created_at));
-    const loans = loanTimes.slice().sort();
+    const loans = loanEntries.slice().sort((a, b) => a.time.localeCompare(b.time));
     const claimed = new Set(); // walk-in ids already claimed by a (closer) loan
 
     // For each loan, find its nearest-preceding, not-yet-claimed walk-in.
-    loans.forEach(loanTime => {
+    loans.forEach(loan => {
       let best = null;
       for (const w of walkins) {
-        if (w.created_at > loanTime) break; // walk-ins sorted ascending; stop once past the loan time
+        if (w.created_at > loan.time) break; // walk-ins sorted ascending; stop once past the loan time
         if (claimed.has(w.id)) continue;
         best = w; // keep advancing to get the closest-preceding (last) eligible walk-in
       }
       if (best) {
         claimed.add(best.id);
         CONVERTED_IDS.add(best.id);
+        COMPLETION_TYPE_BY_WALKIN_ID.set(best.id, loan.subtype === 'TAKEOVER' ? 'TAKEOVER' : 'FRESH');
       }
     });
   });
@@ -225,10 +229,10 @@ async function main() {
     if (callerType === 'RE_CALLER' && callerName && callerName.toLowerCase().includes('test')) callerType = 'UNASSIGNED';
 
     // Loan-completion: last-touch-deduped match against Oro 2.0 loans (see CONVERTED_IDS above), not the
-    // stale Quali loan_history join this used to rely on. FRESH/TAKEOVER split dropped — the new `loans`
-    // table's type/subtype semantics weren't validated for this, so we only track a simple converted flag.
+    // stale Quali loan_history join this used to rely on. FRESH/TAKEOVER split comes from loans.loan_subtype
+    // (see COMPLETION_TYPE_BY_WALKIN_ID above): 'TAKEOVER' -> Takeover, everything else -> Fresh.
     const converted = CONVERTED_IDS.has(id);
-    const completedVia = converted ? 'FRESH' : null; // compatibility shim for the template's 0/1/2 encoding
+    const completedVia = converted ? (COMPLETION_TYPE_BY_WALKIN_ID.get(id) || 'FRESH') : null;
     const bucket = bucketReason(reason);
     const day = created_at.slice(0, 10);
     WALKINS.push({
