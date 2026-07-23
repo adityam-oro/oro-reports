@@ -27,14 +27,14 @@ jobs:
           QUALI_DB_ID: ${{ secrets.QUALI_DB_ID }}
         run: node automation/build.js
 
-      - name: Commit and push if index.html changed
+      - name: Commit and push if co_walkins_report.html changed
         run: |
           git config user.name "co-walkins-report-bot"
           git config user.email "actions@users.noreply.github.com"
-          if git diff --quiet index.html; then
+          if git diff --quiet co_walkins_report.html; then
             echo "No data changes today — nothing to commit."
           else
-            git add index.html
+            git add co_walkins_report.html
             git commit -m "Auto-refresh CO Walk-ins Report ($(date -u +%Y-%m-%d))"
             git push
           fi

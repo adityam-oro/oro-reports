@@ -169,8 +169,8 @@ async function main() {
     .replace('__FOLLOWUP_NEEDED__', JSON.stringify(FOLLOWUP_NEEDED))
     .replace('__ROWS__', JSON.stringify(ROWS));
 
-  fs.writeFileSync(path.join(__dirname, '..', 'index.html'), template);
-  console.log(`Wrote index.html — ${ROWS.length} walk-ins, refreshed ${refreshedAt}`);
+  fs.writeFileSync(path.join(__dirname, '..', 'co_walkins_report.html'), template);
+  console.log(`Wrote co_walkins_report.html — ${ROWS.length} walk-ins, refreshed ${refreshedAt}`);
 }
 
 main().catch(err => {
