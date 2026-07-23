@@ -1,12 +1,14 @@
 // Daily rebuild of the CO Walk-ins Report.
 // Pulls fresh data from Oro 2.0 (walkin_lead) and Quali (lead/rm_caller/loan_history) via the
-// Metabase API, applies the same cleaning/bucketing logic as the report, and writes index.html.
+// Metabase API, applies the same cleaning/bucketing logic as the report, and writes co_walkins_report.html.
+// Also posts an MTD summary to Slack via an Incoming Webhook, if configured.
 //
 // Required environment variables (set as GitHub Actions secrets):
 //   METABASE_URL       e.g. https://oro.metabaseapp.com
 //   METABASE_API_KEY   an API key created in Metabase Admin > Settings > API Keys
 //   ORO2_DB_ID         Metabase database id for "Oro 2.0" (walkin_lead lives here)
 //   QUALI_DB_ID        Metabase database id for "Quali-prod" (lead/rm_caller/loan_history live here)
+//   SLACK_WEBHOOK_URL  optional — an Incoming Webhook URL for the target Slack channel
 
 const fs = require('fs');
 const path = require('path');
@@ -171,6 +173,88 @@ async function main() {
 
   fs.writeFileSync(path.join(__dirname, '..', 'co_walkins_report.html'), template);
   console.log(`Wrote co_walkins_report.html — ${ROWS.length} walk-ins, refreshed ${refreshedAt}`);
+
+  await postSlackSummary(WALKINS, ist);
+}
+
+function pct(part, total) { return total ? Math.round((part / total) * 1000) / 10 : 0; }
+
+async function postSlackSummary(WALKINS, ist) {
+  const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
+  if (!SLACK_WEBHOOK_URL) {
+    console.log('SLACK_WEBHOOK_URL not set — skipping Slack summary.');
+    return;
+  }
+
+  const today = ist.toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + '01';
+  const mtd = WALKINS.filter(w => w.day >= monthStart && w.day <= today);
+
+  const total = mtd.length;
+  const withRE = mtd.filter(w => w.isRE).length;
+  const goldLoanMtd = mtd.filter(w => w.isGoldLoan);
+  const completedGL = goldLoanMtd.filter(w => w.completedVia).length;
+
+  const byCity = {};
+  mtd.forEach(w => { byCity[w.city] = (byCity[w.city] || 0) + 1; });
+  const topCities = Object.entries(byCity).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const byOffice = {};
+  mtd.forEach(w => {
+    const key = `${w.office} (${w.city})`;
+    byOffice[key] = (byOffice[key] || 0) + 1;
+  });
+  const topOffice = Object.entries(byOffice).sort((a, b) => b[1] - a[1])[0];
+
+  const reByCity = {};
+  mtd.forEach(w => {
+    reByCity[w.city] = reByCity[w.city] || { total: 0, re: 0 };
+    reByCity[w.city].total++;
+    if (w.isRE) reByCity[w.city].re++;
+  });
+  const reRates = Object.entries(reByCity)
+    .filter(([, v]) => v.total >= 5)
+    .map(([city, v]) => ({ city, rate: pct(v.re, v.total) }));
+  const lowestRE = reRates.sort((a, b) => a.rate - b.rate)[0];
+
+  const byReason = {};
+  mtd.forEach(w => { byReason[w.reasonLabel] = (byReason[w.reasonLabel] || 0) + 1; });
+  const topReason = Object.entries(byReason).sort((a, b) => b[1] - a[1])[0];
+
+  const insights = [];
+  if (topOffice) insights.push(`Busiest office MTD: *${topOffice[0]}* with ${topOffice[1]} walk-ins.`);
+  if (topReason) insights.push(`Most common reason: *${topReason[0]}* (${topReason[1]} of ${total}).`);
+  if (lowestRE) insights.push(`Lowest branch-RE ownership: *${lowestRE.city}* at ${lowestRE.rate}%.`);
+
+  const cityLines = topCities.map(([city, n]) => `• ${city}: ${n}`).join('\n');
+  const insightLines = insights.map(i => `• ${i}`).join('\n');
+
+  const text = [
+    `*CO Walk-ins Report — MTD Summary (${monthStart} to ${today})*`,
+    ``,
+    `*Total walk-ins (MTD):* ${total}`,
+    `*% With Branch RE:* ${pct(withRE, total)}%`,
+    `*% Loan Completed (Gold Loan only):* ${pct(completedGL, goldLoanMtd.length)}%`,
+    ``,
+    `*Top cities MTD:*`,
+    cityLines || '• (no data)',
+    ``,
+    `*Insights:*`,
+    insightLines || '• (no notable patterns)',
+    ``,
+    `Full report: https://adityam-oro.github.io/oro-reports/co_walkins_report.html`,
+  ].join('\n');
+
+  const res = await fetch(SLACK_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Slack webhook post failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+  console.log('Posted MTD summary to Slack.');
 }
 
 main().catch(err => {

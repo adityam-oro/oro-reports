@@ -25,6 +25,7 @@ jobs:
           METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
           ORO2_DB_ID: ${{ secrets.ORO2_DB_ID }}
           QUALI_DB_ID: ${{ secrets.QUALI_DB_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: node automation/build.js
 
       - name: Commit and push if co_walkins_report.html changed
