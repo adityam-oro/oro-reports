@@ -48,7 +48,7 @@ async function main() {
   console.log('Fetching walk-ins from Oro 2.0...');
   const walkinQuery = `
     SELECT wl.id, ci.name AS city, co.name AS office, wl.created_at, wl.quali_lead_id,
-           wl.type::text, wl.questionnaire->>'purposeOfVisit' AS reason, u.role_name
+           wl.type::text, wl.questionnaire->>'purposeOfVisit' AS reason, u.role_name, wl.mobile_number
     FROM walkin_lead wl
     LEFT JOIN cluster_office co ON co.id = wl.cluster_office_id
     LEFT JOIN city ci ON ci.id = co.city_id
@@ -76,14 +76,15 @@ async function main() {
   const ids = Array.from(idSet);
   console.log(`Fetching ${ids.length} linked Quali leads (test walk-ins excluded: ${TEST_IDS.size})...`);
 
+  // NOTE: loan-completion is NO LONGER derived from this Quali query — Quali's loan_history table is a
+  // frozen historical snapshot (stopped updating in 2024/2025) and cannot tell us whether a loan actually
+  // happened after the walk-in. This query is now only used for caller ownership (isRE/reCallerName).
   let leadRows = [];
   for (const batch of chunk(ids, 400)) {
     const q = `
-      SELECT l.id, l.caller_id, rc.caller_type, rc.caller_name,
-             l.conversion_status, lh.takeover_gl_id, lh.fresh_gl_id
+      SELECT l.id, l.caller_id, rc.caller_type, rc.caller_name
       FROM lead l
       LEFT JOIN rm_caller rc ON rc.id = l.caller_id
-      LEFT JOIN loan_history lh ON lh.id = l.conversion_id
       WHERE l.id IN (${batch.join(',')})
     `;
     const rows = await runQuery(QUALI_DB_ID, q);
@@ -93,7 +94,101 @@ async function main() {
 
   const leadById = {};
   leadRows.forEach(r => {
-    leadById[r[0]] = { caller_type: r[2] || 'UNASSIGNED', caller_name: r[3] || null, conversion_status: r[4] || 'NOT_CONVERTED', takeover_gl_id: r[5], fresh_gl_id: r[6] };
+    leadById[r[0]] = { caller_type: r[2] || 'UNASSIGNED', caller_name: r[3] || null };
+  });
+
+  // ---- Loan-completion detection (Oro 2.0 only) ----
+  // walkin_lead.mobile_number is a bare 10-digit string; users.mobile_number is stored as '+91XXXXXXXXXX'.
+  // Match on that, restricted to CUSTOMER users, then look up their loans by customer_auth_id and use
+  // loans.orocorp_approved_at (best-populated live "loan happened" timestamp) as the completion event.
+  console.log('Fetching customer users + loans from Oro 2.0 for conversion detection...');
+  const mobileSet = new Set();
+  wl.forEach(r => {
+    if (TEST_IDS.has(r[0])) return;
+    const mobile = (r[8] || '').replace(/[^0-9]/g, '');
+    if (mobile) mobileSet.add(mobile);
+  });
+  const mobiles = Array.from(mobileSet);
+
+  let userRows = [];
+  for (const batch of chunk(mobiles, 400)) {
+    const inList = batch.map(m => `'+91${m}'`).join(',');
+    const q = `
+      SELECT id, mobile_number, auth_id
+      FROM users
+      WHERE role_name = 'CUSTOMER' AND mobile_number IN (${inList})
+    `;
+    const rows = await runQuery(ORO2_DB_ID, q);
+    userRows = userRows.concat(rows);
+  }
+  console.log(`  ${userRows.length} matching customer users`);
+
+  // mobile (bare 10-digit) -> auth_id
+  const authIdByMobile = {};
+  userRows.forEach(r => {
+    const mobile = (r[1] || '').replace(/[^0-9]/g, '').slice(-10);
+    if (mobile) authIdByMobile[mobile] = r[2];
+  });
+  const authIds = Array.from(new Set(Object.values(authIdByMobile).filter(Boolean)));
+
+  let loanRows = [];
+  for (const batch of chunk(authIds, 400)) {
+    const inList = batch.map(a => `'${a}'`).join(',');
+    const q = `
+      SELECT customer_auth_id, orocorp_approved_at
+      FROM loans
+      WHERE customer_auth_id IN (${inList}) AND orocorp_approved_at IS NOT NULL
+    `;
+    const rows = await runQuery(ORO2_DB_ID, q);
+    loanRows = loanRows.concat(rows);
+  }
+  console.log(`  ${loanRows.length} approved loans for matched customers`);
+
+  // auth_id -> list of approved_at timestamps
+  const loansByAuthId = {};
+  loanRows.forEach(r => {
+    if (!r[0] || !r[1]) return;
+    loansByAuthId[r[0]] = loansByAuthId[r[0]] || [];
+    loansByAuthId[r[0]].push(r[1]);
+  });
+
+  // Group walk-ins by mobile number, then greedily pair each loan with its single nearest-preceding
+  // walk-in (last-touch dedup) so one real loan can't be credited to multiple walk-ins, and one walk-in
+  // can't double-claim two loans meant for different (closer) walk-ins.
+  const walkinsByMobile = {};
+  wl.forEach(r => {
+    const id = r[0];
+    if (TEST_IDS.has(id)) return;
+    const mobile = (r[8] || '').replace(/[^0-9]/g, '').slice(-10);
+    if (!mobile) return;
+    walkinsByMobile[mobile] = walkinsByMobile[mobile] || [];
+    walkinsByMobile[mobile].push({ id, created_at: r[3] });
+  });
+
+  const CONVERTED_IDS = new Set();
+  Object.keys(walkinsByMobile).forEach(mobile => {
+    const authId = authIdByMobile[mobile];
+    if (!authId) return;
+    const loanTimes = loansByAuthId[authId];
+    if (!loanTimes || !loanTimes.length) return;
+
+    const walkins = walkinsByMobile[mobile].slice().sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const loans = loanTimes.slice().sort();
+    const claimed = new Set(); // walk-in ids already claimed by a (closer) loan
+
+    // For each loan, find its nearest-preceding, not-yet-claimed walk-in.
+    loans.forEach(loanTime => {
+      let best = null;
+      for (const w of walkins) {
+        if (w.created_at > loanTime) break; // walk-ins sorted ascending; stop once past the loan time
+        if (claimed.has(w.id)) continue;
+        best = w; // keep advancing to get the closest-preceding (last) eligible walk-in
+      }
+      if (best) {
+        claimed.add(best.id);
+        CONVERTED_IDS.add(best.id);
+      }
+    });
   });
 
   // Reason bucketing — see the "What to Follow up!" table in the how-it-works guide for the full mapping.
@@ -129,18 +224,18 @@ async function main() {
     const callerName = lead ? lead.caller_name : null;
     if (callerType === 'RE_CALLER' && callerName && callerName.toLowerCase().includes('test')) callerType = 'UNASSIGNED';
 
-    let completedVia = null;
-    if (lead && lead.conversion_status === 'CONVERTED') {
-      if (lead.fresh_gl_id) completedVia = 'FRESH';
-      else if (lead.takeover_gl_id) completedVia = 'TAKEOVER';
-    }
+    // Loan-completion: last-touch-deduped match against Oro 2.0 loans (see CONVERTED_IDS above), not the
+    // stale Quali loan_history join this used to rely on. FRESH/TAKEOVER split dropped — the new `loans`
+    // table's type/subtype semantics weren't validated for this, so we only track a simple converted flag.
+    const converted = CONVERTED_IDS.has(id);
+    const completedVia = converted ? 'FRESH' : null; // compatibility shim for the template's 0/1/2 encoding
     const bucket = bucketReason(reason);
     const day = created_at.slice(0, 10);
     WALKINS.push({
       city, office, day, type,
       reasonLabel: bucket.label, isGoldLoan: bucket.isGoldLoan,
       isRE: callerType === 'RE_CALLER', reCallerName: callerType === 'RE_CALLER' ? (callerName || 'Unnamed RE') : null,
-      completedVia,
+      converted, completedVia,
     });
   });
   console.log(`  ${WALKINS.length} real walk-ins after cleanup`);

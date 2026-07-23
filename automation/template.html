@@ -366,6 +366,35 @@ function buildRePerformance(rows) {
   return Object.entries(agg).map(([name,v]) => ({name, ...v, completed: v.completedFresh+v.completedTakeover})).sort((a,b)=>b.assigned-a.assigned);
 }
 
+// Disposition Breakdown: walk-ins vs loan-completed conversions per reason bucket, excluding
+// "Release / Closing" and "Service" (same exclusion used elsewhere for completion-related tables —
+// those visit types aren't fresh lending demand so a "conversion rate" for them isn't meaningful).
+function buildDispositionBreakdown(rows) {
+  const EXCLUDED = new Set(["Release / Closing", "Service"]);
+  const agg = {};
+  rows.forEach(r => {
+    const label = REASON_LABELS[r[4]];
+    if (EXCLUDED.has(label)) return;
+    agg[label] = agg[label] || { walkins: 0, converted: 0 };
+    agg[label].walkins++;
+    if (r[8] === 1 || r[8] === 2) agg[label].converted++;
+  });
+  return Object.entries(agg)
+    .map(([disposition, v]) => ({ disposition, walkins: v.walkins, converted: v.converted, pct: pct(v.converted, v.walkins) }))
+    .sort((a, b) => b.walkins - a.walkins);
+}
+
+function dispositionBreakdownTableFromRows(rows) {
+  const breakdown = buildDispositionBreakdown(rows);
+  if (!breakdown.length) return `<div class="empty-state">No data in this range.</div>`;
+  return renderTable(
+    [{key:"disposition", label:"Disposition", first:true}, {key:"walkins", label:"Walk-ins", numeric:true},
+     {key:"converted", label:"Loan Converted", numeric:true}, {key:"pct", label:"Conversion %", numeric:true}],
+    breakdown.map(r => ({...r, ["$pct"]: `<span class="pct-pill ${pctPillClass(r.pct)}">${r.pct}%</span>`})),
+    {defaultSortKey:"walkins"}
+  );
+}
+
 function reasonTableFromRows(rows) {
   const reasonsTotal = rows.length;
   const reasons = buildReasons(rows);
@@ -532,6 +561,10 @@ function overviewHTML(rows) {
       <div class="card-head"><h2>Reasons for walk-in</h2><span class="note">Selected range · similar reasons grouped together</span></div>
       ${reasonTableFromRows(rows)}
     </div>
+    <div class="card">
+      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Release/Closing and Service excluded</span></div>
+      ${dispositionBreakdownTableFromRows(rows)}
+    </div>
   `;
 }
 
@@ -636,6 +669,10 @@ function cityHTML(rows, cityLabel) {
     <div class="card">
       <div class="card-head"><h2>Reasons for walk-in</h2><span class="note">Selected range · similar reasons grouped together</span></div>
       ${reasonTableFromRows(cityRows)}
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Release/Closing and Service excluded</span></div>
+      ${dispositionBreakdownTableFromRows(cityRows)}
     </div>
   `;
 }
