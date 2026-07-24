@@ -1,6 +1,10 @@
 // Daily rebuild of the CO Walk-ins Report.
-// Pulls fresh data from Oro 2.0 (walkin_lead) and Quali (lead/rm_caller/loan_history) via the
+// Pulls fresh data from Oro 2.0 (walkin_lead) and Quali (lead/rm_caller) via the
 // Metabase API, applies the same cleaning/bucketing logic as the report, and writes co_walkins_report.html.
+// Reason/disposition bucketing is derived from Quali's lead.service_category_type (100% populated,
+// 7 clean enum values), joined via the same quali_lead_id -> lead.id mapping used for RE-ownership —
+// NOT from the old walkin_lead.questionnaire->>'purposeOfVisit'/'reason' free-text JSON, which had huge
+// data-quality gaps (e.g. ~98% missing in Chennai under one schema) and is no longer read for bucketing.
 // Also posts an MTD summary to Slack via an Incoming Webhook, if configured.
 //
 // Required environment variables (set as GitHub Actions secrets):
@@ -48,7 +52,7 @@ async function main() {
   console.log('Fetching walk-ins from Oro 2.0...');
   const walkinQuery = `
     SELECT wl.id, ci.name AS city, co.name AS office, wl.created_at, wl.quali_lead_id,
-           wl.type::text, wl.questionnaire->>'purposeOfVisit' AS reason, u.role_name, wl.mobile_number
+           wl.type::text, wl.questionnaire->>'purposeOfVisit' AS legacy_reason_unused, u.role_name, wl.mobile_number
     FROM walkin_lead wl
     LEFT JOIN cluster_office co ON co.id = wl.cluster_office_id
     LEFT JOIN city ci ON ci.id = co.city_id
@@ -82,7 +86,7 @@ async function main() {
   let leadRows = [];
   for (const batch of chunk(ids, 400)) {
     const q = `
-      SELECT l.id, l.caller_id, rc.caller_type, rc.caller_name
+      SELECT l.id, l.caller_id, rc.caller_type, rc.caller_name, l.service_category_type
       FROM lead l
       LEFT JOIN rm_caller rc ON rc.id = l.caller_id
       WHERE l.id IN (${batch.join(',')})
@@ -94,7 +98,7 @@ async function main() {
 
   const leadById = {};
   leadRows.forEach(r => {
-    leadById[r[0]] = { caller_type: r[2] || 'UNASSIGNED', caller_name: r[3] || null };
+    leadById[r[0]] = { caller_type: r[2] || 'UNASSIGNED', caller_name: r[3] || null, service_category_type: r[4] || null };
   });
 
   // ---- Loan-completion detection (Oro 2.0 only) ----
@@ -195,29 +199,30 @@ async function main() {
     });
   });
 
-  // Reason bucketing — see the "What to Follow up!" table in the how-it-works guide for the full mapping.
+  // Reason/disposition bucketing — driven by Quali's lead.service_category_type (100% populated, 7 clean
+  // enum values), NOT the old walkin_lead.questionnaire free-text JSON. See header comment for rationale.
   const REASON_BUCKETS = [
-    { label: 'New Gold Loan', match: ['gold_loan', 'gold loan enquiry', 'enquiry'], followupNeeded: true, isGoldLoan: true },
-    { label: 'Gold Sale', match: ['gold_sale', 'gold sale', 'sale enquiry'], followupNeeded: true, isGoldLoan: false },
-    { label: 'Renewal / Top-up', match: ['renewal', 'manual renewal', 'manual renewable', 'renwal', 'renewel', 'rewewable process', 'renewable', 'top up', 'topup', 'gold loan top up purpose', 'excess amount', 'excess', 'part payment'], followupNeeded: true, isGoldLoan: false },
-    { label: 'Takeover', match: ['takeover', 'take over information', 'take over details', 'takeover details enquiry'], followupNeeded: true, isGoldLoan: false },
-    { label: 'Gold Valuation', match: ['gold_valuation'], followupNeeded: true, isGoldLoan: false },
-    { label: 'Release / Closing', match: ['release', 'part release', 'gold release', 'partrelease', 'gold loan release purpose', 'closing', 'closing payment', 'loan close', 'transfer loan on co borrower name'], followupNeeded: false, isGoldLoan: false },
-    { label: 'Service', match: ['service', 'servive'], followupNeeded: false, isGoldLoan: false },
-    { label: 'Business', match: ['business', 'business partner agreement', 'branch event purpose'], followupNeeded: true, isGoldLoan: false },
+    { label: 'New Gold Loan', match: ['GOLD_LOAN'], followupNeeded: true, isGoldLoan: true },
+    { label: 'Gold Sale', match: ['GOLD_SALE'], followupNeeded: true, isGoldLoan: false },
+    { label: 'Gold Valuation', match: ['GOLD_VALUATION'], followupNeeded: true, isGoldLoan: false },
+    { label: 'Community Activity', match: ['COMMUNITY_ACTIVITY'], followupNeeded: true, isGoldLoan: false },
+    { label: 'Support Query', match: ['SUPPORT_QUERY'], followupNeeded: false, isGoldLoan: false },
+    { label: 'Release Query', match: ['RELEASE_QUERY'], followupNeeded: false, isGoldLoan: false },
   ];
   const REASON_LOOKUP = {};
   REASON_BUCKETS.forEach(b => b.match.forEach(m => (REASON_LOOKUP[m] = b)));
-  const NOT_SPECIFIED = { label: 'Not Specified / Other', followupNeeded: true, isGoldLoan: false };
-  function bucketReason(reason) {
-    return REASON_LOOKUP[(reason || '').toLowerCase().trim()] || NOT_SPECIFIED;
+  const NOT_SPECIFIED = { label: 'Not Specified / Other', followupNeeded: true, isGoldLoan: false }; // covers 'OTHERS' and any null/unmatched
+  function bucketReason(lead) {
+    const type = lead && lead.service_category_type ? String(lead.service_category_type).toUpperCase() : null;
+    if (!type) return NOT_SPECIFIED;
+    return REASON_LOOKUP[type] || NOT_SPECIFIED;
   }
   const REASON_LABELS = REASON_BUCKETS.map(b => b.label).concat([NOT_SPECIFIED.label]);
   const FOLLOWUP_NEEDED = REASON_BUCKETS.map(b => b.followupNeeded).concat([NOT_SPECIFIED.followupNeeded]);
   const reasonCodeOf = label => REASON_LABELS.indexOf(label);
 
   const WALKINS = [];
-  wl.forEach(([id, city, office, created_at, quali_lead_id, type, reason]) => {
+  wl.forEach(([id, city, office, created_at, quali_lead_id, type]) => {
     if (TEST_IDS.has(id)) return;
     let lead = null;
     if (quali_lead_id) {
@@ -233,7 +238,7 @@ async function main() {
     // (see COMPLETION_TYPE_BY_WALKIN_ID above): 'TAKEOVER' -> Takeover, everything else -> Fresh.
     const converted = CONVERTED_IDS.has(id);
     const completedVia = converted ? (COMPLETION_TYPE_BY_WALKIN_ID.get(id) || 'FRESH') : null;
-    const bucket = bucketReason(reason);
+    const bucket = bucketReason(lead);
     const day = created_at.slice(0, 10);
     WALKINS.push({
       city, office, day, type,

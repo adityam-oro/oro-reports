@@ -174,11 +174,11 @@ const FOLLOWUP_NEEDED = __FOLLOWUP_NEEDED__;
 const ROWS = __ROWS__;
 
 // Shared "potential customer" scope for every Loan Completed / conversion metric: every reason bucket
-// counts EXCEPT "Release / Closing" and "Service" — those visit types aren't fresh lending demand.
+// counts EXCEPT "Support Query" and "Release Query" — those visit types aren't fresh lending demand.
 // (isGoldLoan / ROWS index 5 is intentionally NOT used to gate completion — it stays a distinct reason
-// label elsewhere, e.g. the Reasons table, but many cities don't capture purposeOfVisit at all and their
-// walk-ins fall into "Not Specified / Other" despite being real gold-loan-seeking customers.)
-const EXCLUDED_FOR_COMPLETION = new Set(["Release / Closing", "Service"]);
+// label elsewhere, e.g. the Reasons table. Some walk-ins land in "Not Specified / Other" — service
+// category OTHERS or an unlinked/missing lead — but they're still real customers and stay in scope.)
+const EXCLUDED_FOR_COMPLETION = new Set(["Support Query", "Release Query"]);
 
 const ALL_CITIES = ["Hyderabad","Chennai","Bengaluru","Guntur","Karimnagar","Pune","Vijayawada","Warangal"];
 
@@ -335,10 +335,10 @@ function buildOfficeRows(rows) {
 }
 
 // Loan Completed scope: every walk-in that's a potential gold-loan customer — i.e. every reason bucket
-// EXCEPT "Release / Closing" and "Service" (same scope as buildDispositionBreakdown). This deliberately
-// is NOT restricted to the "New Gold Loan" reason bucket alone: many cities' intake forms don't capture
-// purposeOfVisit at all, so a real gold-loan-seeking customer often lands in "Not Specified / Other"
-// rather than "New Gold Loan" — excluding them would undercount genuine conversions (e.g. Chennai).
+// EXCEPT "Support Query" and "Release Query" (same scope as buildDispositionBreakdown). This deliberately
+// is NOT restricted to the "New Gold Loan" reason bucket alone: a walk-in with no linked lead or an
+// OTHERS service category lands in "Not Specified / Other" rather than "New Gold Loan" — excluding
+// them would undercount genuine conversions.
 function buildConversion(rows) {
   const scopedRows = rows.filter(r => !EXCLUDED_FOR_COMPLETION.has(REASON_LABELS[r[4]]));
   const agg = {};
@@ -377,7 +377,7 @@ function buildRePerformance(rows) {
 }
 
 // Disposition Breakdown: walk-ins vs loan-completed conversions per reason bucket, excluding
-// "Release / Closing" and "Service" (same exclusion used elsewhere for completion-related tables —
+// "Support Query" and "Release Query" (same exclusion used elsewhere for completion-related tables —
 // those visit types aren't fresh lending demand so a "conversion rate" for them isn't meaningful).
 function buildDispositionBreakdown(rows) {
   const agg = {};
@@ -408,7 +408,7 @@ function reasonTableFromRows(rows) {
   const reasonsTotal = rows.length;
   const reasons = buildReasons(rows);
   return renderTable(
-    [{key:"reason", label:"Reason (purposeOfVisit)", first:true}, {key:"count", label:"Walk-ins", numeric:true}, {key:"pct", label:"% of Total", numeric:true}, {key:"followupNeeded", label:"Follow-up Needed?"}],
+    [{key:"reason", label:"Reason (service category)", first:true}, {key:"count", label:"Walk-ins", numeric:true}, {key:"pct", label:"% of Total", numeric:true}, {key:"followupNeeded", label:"Follow-up Needed?"}],
     reasons.map(r => ({...r,
       ["$followupNeeded"]: r.followupNeeded ? `<span class="pct-pill pct-good">Yes</span>` : `<span class="pct-pill pct-bad">No</span>`})),
     {defaultSortKey:"count"}
@@ -560,7 +560,7 @@ function overviewHTML(rows) {
     <div class="card">
       <div class="card-head"><h2>Loan Completed — did the walk-in become a loan?</h2><span class="note">Excludes Support/Release visits · requires a traceable OMGL id</span></div>
       ${conversionTableFromRows(rows)}
-      <div class="caveat" style="margin:0 18px 16px;">Scoped to every walk-in that's a <b>potential gold-loan customer</b> — Release/Closing and Service visits are excluded since they aren't fresh lending demand, but every other reason bucket counts (including "Not Specified / Other," since many cities don't capture purpose of visit at all and those walk-ins are still real customers). Within that scope, "Loan Completed" only counts a lead if there's a real, traceable OMGL id behind it.</div>
+      <div class="caveat" style="margin:0 18px 16px;">Scoped to every walk-in that's a <b>potential gold-loan customer</b> — Support Query and Release Query visits are excluded since they aren't fresh lending demand, but every other reason bucket counts (including "Not Specified / Other," since many cities don't capture purpose of visit at all and those walk-ins are still real customers). Within that scope, "Loan Completed" only counts a lead if there's a real, traceable OMGL id behind it.</div>
     </div>
     <div class="card">
       <div class="card-head"><h2>New vs existing visitors</h2></div>
@@ -571,7 +571,7 @@ function overviewHTML(rows) {
       ${reasonTableFromRows(rows)}
     </div>
     <div class="card">
-      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Release/Closing and Service excluded</span></div>
+      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Support Query and Release Query excluded</span></div>
       ${dispositionBreakdownTableFromRows(rows)}
     </div>
   `;
@@ -680,7 +680,7 @@ function cityHTML(rows, cityLabel) {
       ${reasonTableFromRows(cityRows)}
     </div>
     <div class="card">
-      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Release/Closing and Service excluded</span></div>
+      <div class="card-head"><h2>Disposition Breakdown</h2><span class="note">Selected range · Support Query and Release Query excluded</span></div>
       ${dispositionBreakdownTableFromRows(cityRows)}
     </div>
   `;
