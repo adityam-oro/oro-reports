@@ -283,6 +283,121 @@ async function main() {
 
 function pct(part, total) { return total ? Math.round((part / total) * 1000) / 10 : 0; }
 
+// Reason buckets in fixed report order, with abbreviated table headers.
+const REASON_COLUMNS = [
+  { label: 'New Gold Loan', header: 'NewGL' },
+  { label: 'Gold Sale', header: 'GoldSale' },
+  { label: 'Gold Valuation', header: 'Valuation' },
+  { label: 'Community Activity', header: 'CommActiv' },
+  { label: 'Support Query', header: 'Support' },
+  { label: 'Release Query', header: 'Release' },
+  { label: 'Not Specified / Other', header: 'Other' },
+];
+
+// A "potential customer" completion: converted=true, excluding Support/Release queries (same scope used
+// throughout the rest of this report / template.html's buildConversion).
+function isPotentialCompletion(w) {
+  return w.converted && w.reasonLabel !== 'Support Query' && w.reasonLabel !== 'Release Query';
+}
+
+// Build a fixed-width plain-text table (for a Slack code block) from column defs + rows.
+// cols: [{ header, align: 'left'|'right', getValue: row => string }]
+// rows: array of row objects (already includes the trailing Total row, if any).
+function buildFixedWidthTable(cols, rows) {
+  const cellStrings = rows.map(row => cols.map(c => c.getValue(row)));
+  const widths = cols.map((c, i) => Math.max(c.header.length, ...cellStrings.map(r => r[i].length)));
+  const pad = (str, width, align) => (align === 'right' ? str.padStart(width) : str.padEnd(width));
+  const headerLine = cols.map((c, i) => pad(c.header, widths[i], c.align)).join('  ').trimEnd();
+  const bodyLines = cellStrings.map(r => cols.map((c, i) => pad(r[i], widths[i], c.align)).join('  ').trimEnd());
+  return [headerLine, ...bodyLines].join('\n');
+}
+
+// Per-city MTD rollup for table 2 (City / Walk-ins / %RE / Completed / %Compl / Fresh / Takeover).
+function buildCityRollup(mtd) {
+  const byCity = {};
+  mtd.forEach(w => {
+    byCity[w.city] = byCity[w.city] || { city: w.city, walkins: 0, re: 0, completed: 0, fresh: 0, takeover: 0 };
+    const c = byCity[w.city];
+    c.walkins++;
+    if (w.isRE) c.re++;
+    if (isPotentialCompletion(w)) {
+      c.completed++;
+      if (w.completedVia === 'TAKEOVER') c.takeover++;
+      else c.fresh++;
+    }
+  });
+  return Object.values(byCity).sort((a, b) => b.walkins - a.walkins);
+}
+
+function buildCityRollupTableText(mtd) {
+  const rows = buildCityRollup(mtd);
+  const totalRow = rows.reduce(
+    (acc, r) => {
+      acc.walkins += r.walkins; acc.re += r.re; acc.completed += r.completed;
+      acc.fresh += r.fresh; acc.takeover += r.takeover;
+      return acc;
+    },
+    { city: 'Total', walkins: 0, re: 0, completed: 0, fresh: 0, takeover: 0 }
+  );
+  const displayRows = rows.concat([totalRow]);
+
+  const cols = [
+    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `▶ ${r.city}` : r.city) },
+    { header: 'Walk-ins', align: 'right', getValue: r => String(r.walkins) },
+    { header: '%RE', align: 'right', getValue: r => `${pct(r.re, r.walkins)}%` },
+    { header: 'Completed', align: 'right', getValue: r => String(r.completed) },
+    { header: '%Compl', align: 'right', getValue: r => `${pct(r.completed, r.walkins)}%` },
+    { header: 'Fresh', align: 'right', getValue: r => String(r.fresh) },
+    { header: 'Takeover', align: 'right', getValue: r => String(r.takeover) },
+  ];
+  return { text: buildFixedWidthTable(cols, displayRows), cityOrder: rows.map(r => r.city), grandTotal: totalRow.walkins };
+}
+
+// City x reason count table (used for both MTD and yesterday scopes).
+function buildCityReasonTableText(subset, cityOrder) {
+  const byCity = {};
+  subset.forEach(w => {
+    byCity[w.city] = byCity[w.city] || { city: w.city, counts: {}, total: 0 };
+    const c = byCity[w.city];
+    c.counts[w.reasonLabel] = (c.counts[w.reasonLabel] || 0) + 1;
+    c.total++;
+  });
+
+  // Preserve the given city order (e.g. MTD walk-ins-descending order) but only cities present in `subset`;
+  // append any cities present in subset but missing from cityOrder (shouldn't normally happen for MTD table,
+  // but keeps the "yesterday" table correct in case of an office active only on that day).
+  const orderedCities = (cityOrder || []).filter(c => byCity[c]);
+  Object.keys(byCity).forEach(c => { if (!orderedCities.includes(c)) orderedCities.push(c); });
+
+  if (!orderedCities.length) return { text: null, grandTotal: 0 };
+
+  const rows = orderedCities.map(c => byCity[c]);
+  const totalRow = { city: 'Total', counts: {}, total: 0 };
+  REASON_COLUMNS.forEach(rc => {
+    totalRow.counts[rc.label] = rows.reduce((sum, r) => sum + (r.counts[rc.label] || 0), 0);
+  });
+  totalRow.total = rows.reduce((sum, r) => sum + r.total, 0);
+  const displayRows = rows.concat([totalRow]);
+
+  const cols = [
+    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `▶ ${r.city}` : r.city) },
+    ...REASON_COLUMNS.map(rc => ({
+      header: rc.header, align: 'right', getValue: r => String(r.counts[rc.label] || 0),
+    })),
+    { header: 'Total', align: 'right', getValue: r => String(r.total) },
+  ];
+  return { text: buildFixedWidthTable(cols, displayRows), grandTotal: totalRow.total };
+}
+
+// Historical (all-time, not just MTD) average daily walk-in volume for a given office, used as the
+// baseline for the spike-day callout.
+function officeHistoricalDailyAverage(WALKINS, office) {
+  const rows = WALKINS.filter(w => w.office === office);
+  const days = new Set(rows.map(w => w.day));
+  if (!days.size) return 0;
+  return rows.length / days.size;
+}
+
 async function postSlackSummary(WALKINS, ist) {
   const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
   if (!SLACK_WEBHOOK_URL) {
@@ -294,21 +409,45 @@ async function postSlackSummary(WALKINS, ist) {
   const monthStart = today.slice(0, 8) + '01';
   const mtd = WALKINS.filter(w => w.day >= monthStart && w.day <= today);
 
-  const total = mtd.length;
-  const withRE = mtd.filter(w => w.isRE).length;
-  const goldLoanMtd = mtd.filter(w => w.isGoldLoan);
-  const completedGL = goldLoanMtd.filter(w => w.completedVia).length;
+  const yesterdayDate = new Date(new Date(today + 'T00:00:00Z').getTime() - 24 * 60 * 60 * 1000);
+  const yesterday = yesterdayDate.toISOString().slice(0, 10);
+  const yesterdayWalkins = WALKINS.filter(w => w.day === yesterday);
 
-  const byCity = {};
-  mtd.forEach(w => { byCity[w.city] = (byCity[w.city] || 0) + 1; });
-  const topCities = Object.entries(byCity).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  // ---- Section 1: title ----
+  const titleText = `*CO Walk-ins Report — Daily Digest (${today})*`;
+
+  // ---- Section 2: MTD table by city ----
+  const cityRollup = buildCityRollupTableText(mtd);
+  const section2Text = [`*MTD — Walk-ins by City*`, '```', cityRollup.text, '```'].join('\n');
+
+  // ---- Section 3: MTD table by city x reason ----
+  const mtdReasonTable = buildCityReasonTableText(mtd, cityRollup.cityOrder);
+  console.log(`[verify] MTD walk-ins: overall=${mtd.length}, city-rollup total=${cityRollup.grandTotal}, city x reason total=${mtdReasonTable.grandTotal}`);
+  if (mtdReasonTable.grandTotal !== mtd.length || cityRollup.grandTotal !== mtd.length) {
+    console.warn('[verify] WARNING: MTD table grand totals do not match overall MTD walk-in count!');
+  }
+  const section3Text = [`*MTD — Walk-ins by City x Reason*`, '```', mtdReasonTable.text, '```'].join('\n');
+
+  // ---- Section 4: yesterday table by city x reason ----
+  const yesterdayReasonTable = buildCityReasonTableText(yesterdayWalkins, cityRollup.cityOrder);
+  console.log(`[verify] Yesterday (${yesterday}) walk-ins: overall=${yesterdayWalkins.length}, city x reason total=${yesterdayReasonTable.grandTotal}`);
+  const section4Text = yesterdayWalkins.length
+    ? [`*Yesterday (${yesterday}) — Walk-ins by City x Reason*`, '```', yesterdayReasonTable.text, '```'].join('\n')
+    : [`*Yesterday (${yesterday}) — Walk-ins by City x Reason*`, `_No walk-ins recorded yesterday._`].join('\n');
+
+  // ---- Section 5: insights ----
+  const total = mtd.length;
 
   const byOffice = {};
   mtd.forEach(w => {
-    const key = `${w.office} (${w.city})`;
+    const key = `${w.office}|||${w.city}`;
     byOffice[key] = (byOffice[key] || 0) + 1;
   });
-  const topOffice = Object.entries(byOffice).sort((a, b) => b[1] - a[1])[0];
+  const topOfficeEntry = Object.entries(byOffice).sort((a, b) => b[1] - a[1])[0];
+
+  const byReason = {};
+  mtd.forEach(w => { byReason[w.reasonLabel] = (byReason[w.reasonLabel] || 0) + 1; });
+  const topReason = Object.entries(byReason).sort((a, b) => b[1] - a[1])[0];
 
   const reByCity = {};
   mtd.forEach(w => {
@@ -319,46 +458,87 @@ async function postSlackSummary(WALKINS, ist) {
   const reRates = Object.entries(reByCity)
     .filter(([, v]) => v.total >= 5)
     .map(([city, v]) => ({ city, rate: pct(v.re, v.total) }));
-  const lowestRE = reRates.sort((a, b) => a.rate - b.rate)[0];
+  const lowestRE = reRates.slice().sort((a, b) => a.rate - b.rate)[0];
+  const highestRE = reRates.slice().sort((a, b) => b.rate - a.rate)[0];
 
-  const byReason = {};
-  mtd.forEach(w => { byReason[w.reasonLabel] = (byReason[w.reasonLabel] || 0) + 1; });
-  const topReason = Object.entries(byReason).sort((a, b) => b[1] - a[1])[0];
+  // Spike callout: office+day combo with the largest MTD daily count, vs that office's all-time daily average.
+  const byOfficeDay = {};
+  mtd.forEach(w => {
+    const key = `${w.office}|||${w.city}|||${w.day}`;
+    byOfficeDay[key] = (byOfficeDay[key] || 0) + 1;
+  });
+  const topOfficeDayEntry = Object.entries(byOfficeDay).sort((a, b) => b[1] - a[1])[0];
 
   const insights = [];
-  if (topOffice) insights.push(`Busiest office MTD: *${topOffice[0]}* with ${topOffice[1]} walk-ins.`);
-  if (topReason) insights.push(`Most common reason: *${topReason[0]}* (${topReason[1]} of ${total}).`);
-  if (lowestRE) insights.push(`Lowest branch-RE ownership: *${lowestRE.city}* at ${lowestRE.rate}%.`);
-
-  const cityLines = topCities.map(([city, n]) => `• ${city}: ${n}`).join('\n');
+  if (topOfficeEntry) {
+    const [office, city] = topOfficeEntry[0].split('|||');
+    insights.push(`Busiest office MTD: *${office}* (${city}) with ${topOfficeEntry[1]} walk-ins.`);
+  }
+  if (topReason) {
+    insights.push(`Most common reason MTD: *${topReason[0]}* — ${topReason[1]} of ${total} (${pct(topReason[1], total)}%).`);
+  }
+  if (lowestRE && highestRE) {
+    insights.push(`Branch-RE ownership spread: lowest *${lowestRE.city}* (${lowestRE.rate}%), highest *${highestRE.city}* (${highestRE.rate}%).`);
+  }
+  if (topOfficeDayEntry) {
+    const [office, city, day] = topOfficeDayEntry[0].split('|||');
+    const dayCount = topOfficeDayEntry[1];
+    const avg = officeHistoricalDailyAverage(WALKINS, office);
+    const multiple = avg > 0 ? dayCount / avg : 0;
+    if (avg > 0 && multiple >= 3) {
+      const [, , dd] = day.split('-');
+      const [, mm] = day.split('-');
+      const dateLabel = `${parseInt(mm, 10)}/${parseInt(dd, 10)}`;
+      insights.push(`*${office}* (${city}) hit ${dayCount} walk-ins on ${dateLabel} — ~${Math.round(multiple * 10) / 10}x its usual daily average.`);
+    }
+  }
   const insightLines = insights.map(i => `• ${i}`).join('\n');
+  const section5Text = [`*Insights*`, insightLines || '• (no notable patterns)'].join('\n');
 
-  const text = [
-    `*CO Walk-ins Report — MTD Summary (${monthStart} to ${today})*`,
-    ``,
-    `*Total walk-ins (MTD):* ${total}`,
-    `*% With Branch RE:* ${pct(withRE, total)}%`,
-    `*% Loan Completed (Gold Loan only):* ${pct(completedGL, goldLoanMtd.length)}%`,
-    ``,
-    `*Top cities MTD:*`,
-    cityLines || '• (no data)',
-    ``,
-    `*Insights:*`,
-    insightLines || '• (no notable patterns)',
-    ``,
-    `Full report: https://adityam-oro.github.io/oro-reports/co_walkins_report.html`,
-  ].join('\n');
+  // ---- Section 6: footer ----
+  const footerText = `Full report: https://adityam-oro.github.io/oro-reports/co_walkins_report.html`;
+
+  // Slack section blocks cap text.text at ~3000 chars — split into one block per major section (well under
+  // the limit individually, and safe regardless of future data volume) rather than one giant block.
+  const sectionTexts = [titleText, section2Text, section3Text, section4Text, section5Text, footerText];
+  const MAX_BLOCK_LEN = 2900;
+  const blocks = [];
+  sectionTexts.forEach(t => {
+    if (t.length <= MAX_BLOCK_LEN) {
+      blocks.push({ type: 'section', text: { type: 'mrkdwn', text: t } });
+    } else {
+      // Extremely defensive fallback: chunk an oversized section into multiple blocks by line.
+      const lines = t.split('\n');
+      let chunkText = '';
+      lines.forEach(line => {
+        if ((chunkText + '\n' + line).length > MAX_BLOCK_LEN) {
+          blocks.push({ type: 'section', text: { type: 'mrkdwn', text: chunkText } });
+          chunkText = line;
+        } else {
+          chunkText = chunkText ? `${chunkText}\n${line}` : line;
+        }
+      });
+      if (chunkText) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: chunkText } });
+    }
+  });
+
+  const payload = {
+    attachments: [{
+      color: '#FFA500',
+      blocks,
+    }],
+  };
 
   const res = await fetch(SLACK_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Slack webhook post failed (${res.status}): ${body.slice(0, 300)}`);
   }
-  console.log('Posted MTD summary to Slack.');
+  console.log('Posted daily digest to Slack.');
 }
 
 main().catch(err => {

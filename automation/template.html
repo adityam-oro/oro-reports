@@ -222,8 +222,11 @@ function dayLabel(dateStr) { const [,m,dd] = dateStr.split("-"); return parseInt
 const ALL_DAYS = ROWS.map(r => r[2]).sort();
 const MIN_DAY = ALL_DAYS[0];
 const MAX_DAY = ALL_DAYS[ALL_DAYS.length - 1];
+// Default view is month-to-date (from the 1st of MAX_DAY's month through MAX_DAY) rather than
+// all-time — "Reset to all-time" below still gives access to the full history.
+const MTD_START = MAX_DAY.slice(0, 8) + "01";
 
-let RANGE_START = MIN_DAY;
+let RANGE_START = MTD_START;
 let RANGE_END = MAX_DAY;
 
 function rowsInRange() {
