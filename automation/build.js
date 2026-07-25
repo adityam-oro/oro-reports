@@ -283,15 +283,17 @@ async function main() {
 
 function pct(part, total) { return total ? Math.round((part / total) * 1000) / 10 : 0; }
 
-// Reason buckets in fixed report order, with abbreviated table headers.
+// Reason buckets in fixed report order. Headers are kept to 2 chars — Slack's rendered column for
+// message/attachment text is much narrower than a desktop terminal (especially in the sidebar/mobile),
+// so a 7-column table needs every character it can save to avoid mid-row wrapping.
 const REASON_COLUMNS = [
-  { label: 'New Gold Loan', header: 'NewGL' },
-  { label: 'Gold Sale', header: 'GoldSale' },
-  { label: 'Gold Valuation', header: 'Valuation' },
-  { label: 'Community Activity', header: 'CommActiv' },
-  { label: 'Support Query', header: 'Support' },
-  { label: 'Release Query', header: 'Release' },
-  { label: 'Not Specified / Other', header: 'Other' },
+  { label: 'New Gold Loan', header: 'GL' },
+  { label: 'Gold Sale', header: 'GS' },
+  { label: 'Gold Valuation', header: 'GV' },
+  { label: 'Community Activity', header: 'CA' },
+  { label: 'Support Query', header: 'SQ' },
+  { label: 'Release Query', header: 'RQ' },
+  { label: 'Not Specified / Other', header: 'OT' },
 ];
 
 // A "potential customer" completion: converted=true, excluding Support/Release queries (same scope used
@@ -307,8 +309,8 @@ function buildFixedWidthTable(cols, rows) {
   const cellStrings = rows.map(row => cols.map(c => c.getValue(row)));
   const widths = cols.map((c, i) => Math.max(c.header.length, ...cellStrings.map(r => r[i].length)));
   const pad = (str, width, align) => (align === 'right' ? str.padStart(width) : str.padEnd(width));
-  const headerLine = cols.map((c, i) => pad(c.header, widths[i], c.align)).join('  ').trimEnd();
-  const bodyLines = cellStrings.map(r => cols.map((c, i) => pad(r[i], widths[i], c.align)).join('  ').trimEnd());
+  const headerLine = cols.map((c, i) => pad(c.header, widths[i], c.align)).join(' ').trimEnd();
+  const bodyLines = cellStrings.map(r => cols.map((c, i) => pad(r[i], widths[i], c.align)).join(' ').trimEnd());
   return [headerLine, ...bodyLines].join('\n');
 }
 
@@ -342,13 +344,13 @@ function buildCityRollupTableText(mtd) {
   const displayRows = rows.concat([totalRow]);
 
   const cols = [
-    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `▶ ${r.city}` : r.city) },
-    { header: 'Walk-ins', align: 'right', getValue: r => String(r.walkins) },
-    { header: '%RE', align: 'right', getValue: r => `${pct(r.re, r.walkins)}%` },
-    { header: 'Completed', align: 'right', getValue: r => String(r.completed) },
-    { header: '%Compl', align: 'right', getValue: r => `${pct(r.completed, r.walkins)}%` },
-    { header: 'Fresh', align: 'right', getValue: r => String(r.fresh) },
-    { header: 'Takeover', align: 'right', getValue: r => String(r.takeover) },
+    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `> ${r.city}` : r.city) },
+    { header: 'WI', align: 'right', getValue: r => String(r.walkins) },
+    { header: 'RE%', align: 'right', getValue: r => `${pct(r.re, r.walkins)}%` },
+    { header: 'Cmp', align: 'right', getValue: r => String(r.completed) },
+    { header: 'Cmp%', align: 'right', getValue: r => `${pct(r.completed, r.walkins)}%` },
+    { header: 'Fr', align: 'right', getValue: r => String(r.fresh) },
+    { header: 'TO', align: 'right', getValue: r => String(r.takeover) },
   ];
   return { text: buildFixedWidthTable(cols, displayRows), cityOrder: rows.map(r => r.city), grandTotal: totalRow.walkins };
 }
@@ -380,11 +382,11 @@ function buildCityReasonTableText(subset, cityOrder) {
   const displayRows = rows.concat([totalRow]);
 
   const cols = [
-    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `▶ ${r.city}` : r.city) },
+    { header: 'City', align: 'left', getValue: r => (r.city === 'Total' ? `> ${r.city}` : r.city) },
     ...REASON_COLUMNS.map(rc => ({
       header: rc.header, align: 'right', getValue: r => String(r.counts[rc.label] || 0),
     })),
-    { header: 'Total', align: 'right', getValue: r => String(r.total) },
+    { header: 'Tot', align: 'right', getValue: r => String(r.total) },
   ];
   return { text: buildFixedWidthTable(cols, displayRows), grandTotal: totalRow.total };
 }
@@ -414,11 +416,16 @@ async function postSlackSummary(WALKINS, ist) {
   const yesterdayWalkins = WALKINS.filter(w => w.day === yesterday);
 
   // ---- Section 1: title ----
-  const titleText = `*CO Walk-ins Report — Daily Digest (${today})*`;
+  // 🟧 stands in for the orange accent bar that "attachments" would have given us — dropped in favor of
+  // top-level blocks (see payload assembly below) to fix wrapping/collapsing.
+  const titleText = `🟧 *CO Walk-ins Report — Daily Digest (${today})*`;
 
   // ---- Section 2: MTD table by city ----
   const cityRollup = buildCityRollupTableText(mtd);
   const section2Text = [`*MTD — Walk-ins by City*`, '```', cityRollup.text, '```'].join('\n');
+
+  // Reason-column abbreviation legend — spelled out once so the 2-char table headers stay readable.
+  const REASON_LEGEND = 'GL=New Gold Loan  GS=Gold Sale  GV=Valuation  CA=Community Activity  SQ=Support Query  RQ=Release Query  OT=Other';
 
   // ---- Section 3: MTD table by city x reason ----
   const mtdReasonTable = buildCityReasonTableText(mtd, cityRollup.cityOrder);
@@ -426,13 +433,13 @@ async function postSlackSummary(WALKINS, ist) {
   if (mtdReasonTable.grandTotal !== mtd.length || cityRollup.grandTotal !== mtd.length) {
     console.warn('[verify] WARNING: MTD table grand totals do not match overall MTD walk-in count!');
   }
-  const section3Text = [`*MTD — Walk-ins by City x Reason*`, '```', mtdReasonTable.text, '```'].join('\n');
+  const section3Text = [`*MTD — Walk-ins by City x Reason*`, '```', mtdReasonTable.text, '```', `_${REASON_LEGEND}_`].join('\n');
 
   // ---- Section 4: yesterday table by city x reason ----
   const yesterdayReasonTable = buildCityReasonTableText(yesterdayWalkins, cityRollup.cityOrder);
   console.log(`[verify] Yesterday (${yesterday}) walk-ins: overall=${yesterdayWalkins.length}, city x reason total=${yesterdayReasonTable.grandTotal}`);
   const section4Text = yesterdayWalkins.length
-    ? [`*Yesterday (${yesterday}) — Walk-ins by City x Reason*`, '```', yesterdayReasonTable.text, '```'].join('\n')
+    ? [`*Yesterday (${yesterday}) — Walk-ins by City x Reason*`, '```', yesterdayReasonTable.text, '```', `_${REASON_LEGEND}_`].join('\n')
     : [`*Yesterday (${yesterday}) — Walk-ins by City x Reason*`, `_No walk-ins recorded yesterday._`].join('\n');
 
   // ---- Section 5: insights ----
@@ -522,12 +529,10 @@ async function postSlackSummary(WALKINS, ist) {
     }
   });
 
-  const payload = {
-    attachments: [{
-      color: '#FFA500',
-      blocks,
-    }],
-  };
+  // Plain top-level blocks (NOT wrapped in "attachments") — attachments render in a visibly narrower
+  // column and are what triggered both the mid-row wrapping and the per-block "Show more" collapsing
+  // that hid the Total rows. Top-level blocks get full message width and a much higher collapse threshold.
+  const payload = { blocks };
 
   const res = await fetch(SLACK_WEBHOOK_URL, {
     method: 'POST',
