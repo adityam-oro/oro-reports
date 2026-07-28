@@ -1,0 +1,40 @@
+name: Update AP Rubric Report
+
+on:
+  schedule:
+    # 14:30 UTC = 8:00 PM IST, every Sunday (same schedule as the SP rubric)
+    - cron: '30 14 * * 0'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rebuild report from latest data
+        env:
+          METABASE_URL: ${{ secrets.METABASE_URL }}
+          METABASE_API_KEY: ${{ secrets.METABASE_API_KEY }}
+          QUALI_DB_ID: ${{ secrets.QUALI_DB_ID }}
+          ORO2_DB_ID: ${{ secrets.ORO2_DB_ID }}
+        run: node automation/build-ap-rubric.js
+
+      - name: Commit and push if ap_rubric_report.html changed
+        run: |
+          git config user.name "ap-rubric-report-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet ap_rubric_report.html; then
+            echo "No data changes this week — nothing to commit."
+          else
+            git add ap_rubric_report.html
+            git commit -m "Weekly refresh: AP Rubric Report ($(date -u +%Y-%m-%d))"
+            git push
+          fi

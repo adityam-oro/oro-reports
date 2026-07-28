@@ -1,0 +1,338 @@
+<title>AP Rubric — Full Report</title>
+<style>
+:root {
+  --paper: #FAF8F4; --surface: #FFFFFF; --surface-2: #F3EFE6;
+  --ink: #1C1917; --ink-2: #57503E; --ink-3: #766D5B;
+  --line: #E2DAC8; --line-strong: #C9BFA8;
+  --gold: #8F6200; --gold-bright: #E0A82E; --gold-tint: #F4E9CD;
+  --warn: #96351E; --warn-tint: #F6E4DD;
+  --good: #3E6B33; --good-tint: #E9F0E4;
+  --calm: #41527A; --calm-tint: #E8ECF4;
+  --fd: ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --fm: ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"] {
+  --paper: #16140F; --surface: #1D1A13; --surface-2: #241F16;
+  --ink: #EDE8DC; --ink-2: #B9B09B; --ink-3: #8A8270;
+  --line: #33301F; --line-strong: #453F27;
+  --gold: #E0A82E; --gold-bright: #E0A82E; --gold-tint: #332A14;
+  --warn: #D97757; --warn-tint: #3A2018;
+  --good: #7FB86C; --good-tint: #1E2A17;
+  --calm: #8FA3D6; --calm-tint: #1A2030;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #16140F; --surface: #1D1A13; --surface-2: #241F16;
+    --ink: #EDE8DC; --ink-2: #B9B09B; --ink-3: #8A8270;
+    --line: #33301F; --line-strong: #453F27;
+    --gold: #E0A82E; --gold-bright: #E0A82E; --gold-tint: #332A14;
+    --warn: #D97757; --warn-tint: #3A2018;
+    --good: #7FB86C; --good-tint: #1E2A17;
+    --calm: #8FA3D6; --calm-tint: #1A2030;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--fd); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 78rem; margin-inline: auto; padding-inline: clamp(1rem, 4vw, 2.5rem); }
+.label { font-family: var(--fm); font-size: .72rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+header { padding: 1.25rem 0 1rem; border-bottom: 1px solid var(--line); }
+.mrow { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+h1 { font-family: Charter, Georgia, serif; font-size: 1.55rem; font-weight: 620; margin: .5rem 0 0; }
+h2 { font-size: 1.05rem; font-weight: 620; margin: 0 0 .75rem; }
+.marker { display: block; font-family: var(--fm); font-size: .72rem; letter-spacing: .06em; color: var(--gold); margin-bottom: .5rem; }
+.marker::after { content: ""; display: block; width: 2rem; height: 1px; background: var(--gold); margin-top: .4rem; }
+section { padding: 2rem 0 .5rem; }
+.filters { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; padding: 1rem 0; }
+select { font-family: var(--fd); font-size: .9rem; padding: .4rem .6rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); }
+#status { font-family: var(--fm); font-size: .72rem; color: var(--ink-3); }
+p { color: var(--ink-2); margin: 0 0 .9rem; max-width: 66ch; }
+strong { color: var(--ink); }
+code { font-family: var(--fm); background: var(--surface-2); padding: .05rem .35rem; border-radius: 4px; font-size: .88em; }
+
+.monthpicker, .citytabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.monthpicker label { display: inline-flex; align-items: center; gap: .35rem; font-size: .82rem; border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .7rem; cursor: pointer; background: var(--surface); }
+.monthpicker label:has(input:checked) { background: var(--gold-tint); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+.monthpicker input { accent-color: var(--gold); }
+.citytab { font-size: .82rem; border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .8rem; cursor: pointer; background: var(--surface); color: var(--ink-2); }
+.citytab.active { background: var(--gold-tint); border-color: var(--gold); color: var(--gold); font-weight: 650; }
+
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 1rem; margin: 1rem 0; }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.stat { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: .9rem 1rem; }
+.stat b { display: block; font-size: 1.5rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat.gold b { color: var(--gold); } .stat.warn b { color: var(--warn); } .stat.good b { color: var(--good); }
+.stat span { display: block; font-size: .75rem; color: var(--ink-3); margin-top: .25rem; line-height: 1.35; }
+
+.tbox { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: .5rem 0 1rem; }
+table { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th { text-align: left; font-family: var(--fm); font-size: .64rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: .7rem .9rem .45rem; border-bottom: 1px solid var(--line-strong); }
+td { padding: .5rem .9rem; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+tr:hover td { background: var(--surface-2); }
+.num { font-family: var(--fm); font-size: .8rem; }
+.chip { display: inline-block; font-family: var(--fm); font-size: .62rem; font-weight: 600; letter-spacing: .04em; padding: .1rem .45rem; border-radius: 4px; }
+.chip.g { background: var(--good-tint); color: var(--good); }
+.chip.w { background: var(--gold-tint); color: var(--gold); }
+.chip.r { background: var(--warn-tint); color: var(--warn); }
+.chip.n { background: var(--calm-tint); color: var(--calm); }
+.caption { font-size: .78rem; color: var(--ink-3); max-width: 66rem; margin: .25rem 0 0; }
+
+.callout { border: 1px solid var(--line-strong); border-left: 3px solid var(--warn); border-radius: 8px; background: var(--warn-tint); padding: .9rem 1.1rem; margin: .5rem 0 1.25rem; }
+.callout p { margin: 0; max-width: none; color: var(--ink); }
+.callout p + p { margin-top: .5rem; }
+
+.figwrap { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 1rem; overflow-x: auto; margin: .5rem 0 1rem; }
+.bandbar { position: relative; width: 100%; height: 2.4rem; border-radius: 8px; overflow: hidden; display: flex; }
+.bandbar .seg { display: flex; align-items: center; justify-content: center; font-family: var(--fm); font-size: .68rem; letter-spacing: .04em; color: var(--paper); }
+.bandbar .seg.r { background: var(--warn); } .bandbar .seg.w { background: var(--gold); } .bandbar .seg.n { background: var(--calm); } .bandbar .seg.g { background: var(--good); }
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; margin: .75rem 0 0; font-size: .78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.dotkey { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dotkey.r { background: var(--warn); } .dotkey.w { background: var(--gold); } .dotkey.n { background: var(--calm); } .dotkey.g { background: var(--good); }
+
+footer { border-top: 1px solid var(--line); margin-top: 2.5rem; padding: 1.5rem 0 3rem; font-size: .8rem; color: var(--ink-2); }
+a { color: var(--gold); }
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="mrow">
+      <span class="label">Oro · AP scoring</span>
+    </div>
+    <h1>AP rubric — full report</h1>
+    <div class="filters">
+      <div>
+        <span class="label" style="display:block;margin-bottom:.35rem;">Months (pick any)</span>
+        <div id="fMonth" class="monthpicker">
+__MONTH_CHECKBOXES__
+        </div>
+      </div>
+      <div>
+        <span class="label" style="display:block;margin-bottom:.35rem;">City</span>
+        <div id="fCity" class="citytabs"></div>
+      </div>
+      <span id="status">__STATUS_LINE__</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section id="rulesSec">
+  <span class="marker">01 · Rules of scoring</span>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Activity</th><th>Points</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Fresh Loan completed</td><td class="num">30</td><td>Visit reaches <code>VISIT_COMPLETED</code> with <code>loan_subtype = FRESH_LOAN</code></td></tr>
+        <tr><td>Takeover completed</td><td class="num">50</td><td>Visit reaches <code>VISIT_COMPLETED</code> with <code>loan_subtype = TAKEOVER</code></td></tr>
+        <tr><td>Release completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial release</td></tr>
+        <tr><td>Private sale completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial private sale</td></tr>
+        <tr><td>Gold sale (GBS) completed</td><td class="num">30</td><td>A Gold Buy-Sell visit reaches <code>VISIT_COMPLETED</code> (separate product/table from loan visits)</td></tr>
+        <tr><td>Bridge loan (BRL) complete</td><td class="num">25</td><td>The bridge loan issued for a Takeover is settled/closed — credited on the day it closed, <strong>unless that's the same day as the Takeover visit itself</strong> (then only the Takeover points apply, never both, for the same transaction)</td></tr>
+        <tr><td>Visit raised (not completed)</td><td class="num">30</td><td>The AP did the visit — traveled, engaged the customer — but it was cancelled by the customer rather than completed. A visit that completes earns its completion-type points instead, never this bucket too</td></tr>
+        <tr><td>Lead generation</td><td class="num">10</td><td>A lead the AP sourced themselves (<code>created_by_oro_id</code> = the AP)</td></tr>
+        <tr><td>Self-sourced Cx Met</td><td class="num">20</td><td>A self-sourced lead whose visit actually reached <code>VISIT_COMPLETED</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">Objective: 100 points/day. Score = total points earned in the month ÷ (100 × working days). No daily cap currently applied (unlike the SP rubric) — may be added later if the numbers look off in practice. Working days = calendar days minus Sundays (no holiday calendar). The current month is month-to-date. Bands: below 50% is PIP (at risk); 50–70% needs improvement; 70–90% good performance; above 90% is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities. Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
+</section>
+
+<section id="orgSec">
+  <span class="marker">02 · Org view — month over month</span>
+  <div class="stats" id="orgStats"></div>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Month</th><th>APs active</th><th>Total points</th><th>Avg score %</th><th>At risk</th><th>Star</th></tr></thead>
+      <tbody id="orgTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above.</p>
+</section>
+
+<section id="bandSec">
+  <span class="marker">03 · Score distribution</span>
+  <div class="figwrap">
+    <div class="bandbar" id="bandbar"></div>
+  </div>
+  <div class="legend">
+    <span><i class="dotkey r"></i>PIP — below 50%</span>
+    <span><i class="dotkey w"></i>Needs improvement — 50–70%</span>
+    <span><i class="dotkey n"></i>Good performance — 70–90%</span>
+    <span><i class="dotkey g"></i>Star performer — above 90%</span>
+  </div>
+</section>
+
+<section id="lbSec">
+  <span class="marker">04 · Leaderboard</span>
+  <div class="tbox">
+    <table>
+      <thead><tr>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Bridge</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Points</th><th>Score %</th><th>Band</th>
+      </tr></thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above. Sorted by score %, descending. One row per AP — totals summed across selected months, then rescored.</p>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    Data source: refreshed automatically via GitHub Actions, live from Metabase — completion/cancellation events come from Oro 2.0's <code>visits</code> table (loan_subtype/release_type/visit_status), Gold sale from <code>gbs_visits</code>, Bridge loan closure from <code>loans.loan_status</code> dated by <code>loan_history.brl_approved_at_timestamp</code> (Quali-prod) since no distinct BRL-closure timestamp exists in the source system, and lead generation / self-sourced Cx Met from Quali-prod's <code>lead</code> and <code>sales_visit</code> tables. Scope: active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities, Jan 2026 to present (current month is MTD). Working days = calendar days minus Sundays only (no holiday calendar). No daily point cap is currently applied. Cx escalations and recovery-case handling are not yet scored.
+    <br><br>
+    Roster note: 91 of 135 currently-active APs (per the 2026-07-28 HR sheet) are represented here — the other 44 (mostly late-2025/2026 joiners, or people promoted into management roles) could not yet be resolved to their in-app agent id and will be added once resolved.
+    <br><br>
+    Last refreshed: __REFRESHED_AT__.
+  </div>
+</footer>
+
+<script id="raw-data" type="application/json">
+__RAW_DATA__
+</script>
+<script id="identity-data" type="application/json">
+__IDENTITY_DATA__
+</script>
+<script id="wd-data" type="application/json">
+__WD_DATA__
+</script>
+<script id="month-label-data" type="application/json">
+__MONTH_LABEL_DATA__
+</script>
+<script>
+const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,bridgeLoan,raised,leadGen,selfSourceCxMet])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,bridgeLoan,raised,leadGen,selfSourceCxMet}));
+const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
+const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
+const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
+function nameFor(id){ return NAME_BY_ID.get(id) || id; }
+function cityFor(id){ return CITY_MAP.get(id) || 'Unknown'; }
+const WD = JSON.parse(document.getElementById('wd-data').textContent);
+const MONTH_LABEL = JSON.parse(document.getElementById('month-label-data').textContent);
+const CITIES = ['All', ...new Set(IDENTITY.map(([,,city])=>city))].sort((a,b)=> a==='All'?-1:b==='All'?1:a.localeCompare(b));
+let activeCity = 'All';
+
+const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, bridgeLoan: 25, raised: 30, leadGen: 10, selfSourceCxMet: 20 };
+
+function points(r){
+  return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
+       + r.privateSale*POINTS.privateSale + r.goldSale*POINTS.goldSale + r.bridgeLoan*POINTS.bridgeLoan
+       + r.raised*POINTS.raised + r.leadGen*POINTS.leadGen + r.selfSourceCxMet*POINTS.selfSourceCxMet;
+}
+function band(scorePct){ if(scorePct<50) return 'r'; if(scorePct<70) return 'w'; if(scorePct<90) return 'n'; return 'g'; }
+const BAND_LABEL = {r:'PIP', w:'Needs improvement', n:'Good performance', g:'Star performer'};
+
+const SCORED = RAW.map(r => {
+  const wd = WD[r.month];
+  const pts = points(r);
+  const scorePct = (pts/(100*wd))*100;
+  return {...r, city: cityFor(r.agent), pts, scorePct, bandKey: band(scorePct)};
+});
+
+function selectedMonths(){
+  const checked = [...document.querySelectorAll('#fMonth input[type=checkbox]:checked')].map(c=>c.value);
+  return checked.length ? checked : Object.keys(WD);
+}
+
+function renderCityTabs(){
+  const el = document.getElementById('fCity');
+  el.innerHTML = CITIES.map(c => `<button class="citytab${c===activeCity?' active':''}" data-city="${c}">${c}</button>`).join('');
+  el.querySelectorAll('.citytab').forEach(btn => btn.addEventListener('click', () => { activeCity = btn.dataset.city; render(); }));
+}
+
+function renderOrgTable(months, cityFilter){
+  const rows = months.slice().sort().map(m => {
+    let list = SCORED.filter(r => r.month === m);
+    if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
+    const n = new Set(list.map(r=>r.agent)).size;
+    const pts = list.reduce((s,r)=>s+r.pts,0);
+    const avgScore = list.length ? list.reduce((s,r)=>s+r.scorePct,0)/list.length : 0;
+    const atRisk = list.filter(r=>r.bandKey==='r').length;
+    const star = list.filter(r=>r.bandKey==='g').length;
+    return {m, n, pts, avgScore, atRisk, star};
+  });
+  document.getElementById('orgTableBody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${MONTH_LABEL[r.m]}</td>
+      <td class="num">${r.n}</td>
+      <td class="num">${r.pts.toLocaleString()}</td>
+      <td class="num">${r.avgScore.toFixed(0)}%</td>
+      <td class="num">${r.atRisk}</td>
+      <td class="num">${r.star}</td>
+    </tr>
+  `).join('');
+}
+
+function render(){
+  renderCityTabs();
+  const months = selectedMonths();
+  let rows = SCORED.filter(r => months.includes(r.month));
+  if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
+
+  // Aggregate to one row per AP across the selected months (totals-then-rescore).
+  const byAgent = new Map();
+  rows.forEach(r => {
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, bridgeLoan:0, raised:0, leadGen:0, selfSourceCxMet:0, wd:0};
+    cur.freshLoan+=r.freshLoan; cur.takeover+=r.takeover; cur.release+=r.release; cur.privateSale+=r.privateSale;
+    cur.goldSale+=r.goldSale; cur.bridgeLoan+=r.bridgeLoan; cur.raised+=r.raised; cur.leadGen+=r.leadGen; cur.selfSourceCxMet+=r.selfSourceCxMet;
+    cur.wd += WD[r.month];
+    byAgent.set(r.agent, cur);
+  });
+  const agg = [...byAgent.values()].map(a => {
+    const pts = points(a);
+    const scorePct = (pts/(100*a.wd))*100;
+    return {...a, pts, scorePct, bandKey: band(scorePct)};
+  });
+
+  const n = agg.length;
+  const bandCounts = {r:0,w:0,n:0,g:0};
+  let totalPts = 0, sumScore = 0;
+  agg.forEach(r=>{ bandCounts[r.bandKey]++; totalPts+=r.pts; sumScore+=r.scorePct; });
+
+  document.getElementById('orgStats').innerHTML = `
+    <div class="stat"><b>${n}</b><span>APs (filtered)</span></div>
+    <div class="stat gold"><b>${totalPts.toLocaleString()}</b><span>total points</span></div>
+    <div class="stat"><b>${n?(sumScore/n).toFixed(0):0}%</b><span>avg score</span></div>
+    <div class="stat warn"><b>${bandCounts.r}</b><span>PIP (at risk)</span></div>
+    <div class="stat"><b>${bandCounts.n}</b><span>good performance</span></div>
+    <div class="stat good"><b>${bandCounts.g}</b><span>star performers</span></div>
+  `;
+  renderOrgTable(months, activeCity);
+
+  const bandbar = document.getElementById('bandbar');
+  bandbar.innerHTML = '';
+  ['r','w','n','g'].forEach(k => {
+    const pct = n ? (bandCounts[k]/n*100) : 0;
+    if (pct <= 0) return;
+    const seg = document.createElement('div');
+    seg.className = 'seg ' + k;
+    seg.style.width = pct + '%';
+    seg.textContent = pct >= 8 ? `${BAND_LABEL[k]} (${bandCounts[k]})` : bandCounts[k];
+    bandbar.appendChild(seg);
+  });
+
+  const sorted = [...agg].sort((a,b)=>b.scorePct-a.scorePct);
+  document.getElementById('lbBody').innerHTML = sorted.map(r=>`
+    <tr>
+      <td>${nameFor(r.agent)}</td>
+      <td>${r.city}</td>
+      <td class="num">${r.freshLoan}</td>
+      <td class="num">${r.takeover}</td>
+      <td class="num">${r.release}</td>
+      <td class="num">${r.privateSale}</td>
+      <td class="num">${r.goldSale}</td>
+      <td class="num">${r.bridgeLoan}</td>
+      <td class="num">${r.raised}</td>
+      <td class="num">${r.leadGen}</td>
+      <td class="num">${r.selfSourceCxMet}</td>
+      <td class="num">${r.pts.toLocaleString()}</td>
+      <td class="num">${r.scorePct.toFixed(0)}%</td>
+      <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
+    </tr>
+  `).join('');
+}
+document.querySelectorAll('#fMonth input[type=checkbox]').forEach(c=>c.addEventListener('change', render));
+render();
+</script>
