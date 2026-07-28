@@ -197,12 +197,12 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Total activity</th><th>Total points</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Total points</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Total activity / Total points are raw sums across the selected duration; Points/day is the capped-at-100 daily average used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
+  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Total points is the raw sum across the selected duration; Points/day is the capped-at-100 daily average used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
 </section>
 
 </div>
@@ -211,13 +211,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: refreshed live from Metabase — completion/cancellation events come from Oro 2.0's <code>visits</code> table. Fresh Loan / Takeover are identified by <code>loan_subtype</code>; Release / Private sale are identified by <code>visit_type = 'GR'</code> (verified 2026-07-28: <code>release_type</code> is populated on barely 2% of real release completions, and the <code>RELEASE_VISIT_COMPLETED</code> status itself was only adopted in July 2026 — before that, releases carry ordinary <code>VISIT_COMPLETED</code> status, so <code>visit_type='GR'</code> is the only reliable signal across the full date range; this matches the org-wide ~1,200–1,600 releases/month baseline). Gold sale comes from <code>gbs_visits</code>; Lead Generation / Self-sourced Cx Met come from Quali-prod's <code>lead</code> and <code>sales_visit</code> tables (a lead counts as self-sourced when <code>lead_source</code> and <code>appointment_booked_by</code> both match the AP themselves). Scope: active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities, Jan 2026 to present (current month is MTD, through 28 July). Working days = calendar days minus Sundays minus holidays (6/month assumed, or the actual count of known government holidays landing on a working day if higher). Points/day is capped at 100 (approximated at the monthly-average level — true day-level capping would need day-level data not currently pulled). Cx escalations and recovery-case handling are not yet scored — pending a defined point value.
-    <br><br>
-    Self-sourced Cx Met is scored only where a self-sourced lead traces through to a completed appraisal visit via the <code>sales_visit</code> table — most self-sourced AP leads don't flow through that intermediate table (it's primarily the Sales Partner scheduling layer), so this figure is a lower bound, not a complete count.
-    <br><br>
-    New-joiner exception: an AP who is At risk and still within their first 3 months of joining (by date of joining) is held out of every table and stat on this page — they're excluded entirely, not just re-labeled — until either they clear 3 months' tenure or their score improves.
-    <br><br>
-    Roster note: 91 of 135 currently-active APs (per the 2026-07-28 HR sheet) are represented here — the other 44 (mostly late-2025/2026 joiners, or people promoted into management roles) could not yet be resolved to their in-app agent id and will be added once resolved.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>). Points/day is capped at 100 per month (monthly-average approximation, not true day-level). Self-sourced Cx Met is a lower bound — most self-sourced leads don't trace through the <code>sales_visit</code> table. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: 91 of 135 active APs resolved; the remaining 44 will be added once matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -490,7 +484,6 @@ function render(){
       <td class="num">${r.raised}</td>
       <td class="num">${r.leadGen}</td>
       <td class="num">${r.selfSourceCxMet}</td>
-      <td class="num">${r.activity}</td>
       <td class="num">${r.rawPts.toLocaleString()}</td>
       <td class="num">${r.ptsPerDay.toFixed(0)}</td>
       <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
