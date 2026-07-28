@@ -160,22 +160,32 @@ async function main() {
   }
 
   console.log(`Fetching visits (Oro 2.0) for ${agentIds.length} APs, ${months[0]} through ${currentMonthKey}...`);
+  // Release/Private sale are identified by visit_type='GR', NOT by visit_status='RELEASE_VISIT_COMPLETED'
+  // or release_type (verified 2026-07-28 against the org-wide ~1,200-1,600 releases/month baseline):
+  // release_type is populated on barely 2% of real completions, and RELEASE_VISIT_COMPLETED itself was
+  // only adopted as a status in July 2026 — before that, releases carry ordinary VISIT_COMPLETED status.
+  // visit_type='GR' is the only signal that holds across the whole date range.
   const visitQuery = `
-    SELECT agent_auth_id, visit_time::date AS day, visit_status, loan_subtype, release_type, cancellation_reason
+    SELECT agent_auth_id, visit_time::date AS day, visit_status, loan_subtype, release_type, cancellation_reason, visit_type
     FROM visits
     WHERE agent_auth_id IN (${agentInList})
       AND visit_time >= '2026-01-01'
-      AND (visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED')
-           OR (visit_status = 'VISIT_CANCELLED' AND cancellation_reason IN (${sqlList(CUSTOMER_CANCEL_REASONS)})))
+      AND (
+        (visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED'))
+        OR (visit_status='VISIT_COMPLETED' AND loan_subtype IN ('FRESH_LOAN','TAKEOVER'))
+        OR (visit_status = 'VISIT_CANCELLED' AND cancellation_reason IN (${sqlList(CUSTOMER_CANCEL_REASONS)}))
+      )
   `;
   const visitRows = await runQuery(ORO2_DB_ID, visitQuery);
   console.log(`  ${visitRows.length} visit rows`);
 
-  visitRows.forEach(([agent, day, status, loanSubtype, releaseType]) => {
-    if (status === 'VISIT_COMPLETED' && loanSubtype === 'FRESH_LOAN') addCount(agent, day, 'freshLoan');
+  visitRows.forEach(([agent, day, status, loanSubtype, releaseType, cancellationReason, visitType]) => {
+    if (visitType === 'GR' && (status === 'VISIT_COMPLETED' || status === 'RELEASE_VISIT_COMPLETED')) {
+      if (releaseType === 'PRIVATE_SALE' || releaseType === 'PART_PRIVATE_SALE') addCount(agent, day, 'privateSale');
+      else addCount(agent, day, 'release');
+    }
+    else if (status === 'VISIT_COMPLETED' && loanSubtype === 'FRESH_LOAN') addCount(agent, day, 'freshLoan');
     else if (status === 'VISIT_COMPLETED' && loanSubtype === 'TAKEOVER') addCount(agent, day, 'takeover');
-    else if (status === 'RELEASE_VISIT_COMPLETED' && (releaseType === 'FULL_RELEASE' || releaseType === 'PART_RELEASE')) addCount(agent, day, 'release');
-    else if (status === 'RELEASE_VISIT_COMPLETED' && (releaseType === 'PRIVATE_SALE' || releaseType === 'PART_PRIVATE_SALE')) addCount(agent, day, 'privateSale');
     else if (status === 'VISIT_CANCELLED') addCount(agent, day, 'raised');
   });
 
