@@ -89,6 +89,16 @@ const POINTS = {
 
 const CUSTOMER_CANCEL_REASONS = ['Cancelled by Customer', 'customer_cancelled', 'Customer Cancelled'];
 
+// visits/gbs_visits.agent_auth_id stores users.auth_id, which for most APs is just their numeric
+// users.id as a string — but for these 3 (older/senior accounts) it's a genuine Firebase UID.
+// Querying by numeric id for them silently returned zero rows (verified 2026-07-28). All other
+// 88 of 91 resolved APs have auth_id === id and need no override.
+const AUTH_ID_OVERRIDE = {
+  '265': 'sAR94WWuviVxZNNKFkRfyNvshlk2', // Manikandan R
+  '289': 'kYNsJEcRT7h98wgdbBsV6jTvq4B3', // Shankar S
+  '678': '49baab98-870e-4233-bcf0-f09e777748de', // Ramesh AS
+};
+
 function sqlList(arr) { return arr.map(v => `'${v}'`).join(','); }
 
 // Pan-India gazetted holidays that land on a working day (Mon-Sat) in Jan-Jul 2026 — used to bump the
@@ -148,6 +158,11 @@ async function main() {
   const agentIds = IDENTITY.map(([id]) => id);
   const agentInList = sqlList(agentIds);
 
+  // Oro 2.0's visits/gbs_visits key on agent_auth_id, which needs the override for the 3 APs above.
+  const oro2AuthIds = agentIds.map(id => AUTH_ID_OVERRIDE[id] || id);
+  const oro2AgentInList = sqlList(oro2AuthIds);
+  const authIdToAgentId = new Map(agentIds.map(id => [AUTH_ID_OVERRIDE[id] || id, id]));
+
   // agent|month -> { freshLoan, takeover, release, privateSale, raised, leadGen, selfSourceCxMet, goldSale } (counts, not points)
   const monthAgg = new Map();
   function addCount(agent, day, field, n = 1) {
@@ -168,7 +183,7 @@ async function main() {
   const visitQuery = `
     SELECT agent_auth_id, visit_time::date AS day, visit_status, loan_subtype, release_type, cancellation_reason, visit_type
     FROM visits
-    WHERE agent_auth_id IN (${agentInList})
+    WHERE agent_auth_id IN (${oro2AgentInList})
       AND visit_time >= '2026-01-01'
       AND (
         (visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED'))
@@ -179,7 +194,8 @@ async function main() {
   const visitRows = await runQuery(ORO2_DB_ID, visitQuery);
   console.log(`  ${visitRows.length} visit rows`);
 
-  visitRows.forEach(([agent, day, status, loanSubtype, releaseType, cancellationReason, visitType]) => {
+  visitRows.forEach(([rawAgent, day, status, loanSubtype, releaseType, cancellationReason, visitType]) => {
+    const agent = authIdToAgentId.get(rawAgent) || rawAgent;
     if (visitType === 'GR' && (status === 'VISIT_COMPLETED' || status === 'RELEASE_VISIT_COMPLETED')) {
       if (releaseType === 'PRIVATE_SALE' || releaseType === 'PART_PRIVATE_SALE') addCount(agent, day, 'privateSale');
       else addCount(agent, day, 'release');
@@ -193,11 +209,11 @@ async function main() {
   const gbsQuery = `
     SELECT agent_auth_id, visit_time::date AS day
     FROM gbs_visits
-    WHERE agent_auth_id IN (${agentInList}) AND status = 'VISIT_COMPLETED' AND visit_time >= '2026-01-01'
+    WHERE agent_auth_id IN (${oro2AgentInList}) AND status = 'VISIT_COMPLETED' AND visit_time >= '2026-01-01'
   `;
   const gbsRows = await runQuery(ORO2_DB_ID, gbsQuery);
   console.log(`  ${gbsRows.length} gbs_visits rows`);
-  gbsRows.forEach(([agent, day]) => addCount(agent, day, 'goldSale'));
+  gbsRows.forEach(([rawAgent, day]) => addCount(authIdToAgentId.get(rawAgent) || rawAgent, day, 'goldSale'));
 
   // Self-sourced = lead_source AND appointment_booked_by_id both match the AP (confirmed 2026-07-28 —
   // this is the definition behind the equivalent live Metabase card; created_by_oro_id alone is inflated

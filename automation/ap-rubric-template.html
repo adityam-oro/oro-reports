@@ -156,7 +156,7 @@ __MONTH_CHECKBOXES__
       </tbody>
     </table>
   </div>
-  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Working days = calendar days minus Sundays minus holidays (holidays assumed at 6/month, or the actual count of known government holidays falling on a working day if that's higher). The current month is month-to-date. Bands (on the capped 0–100 scale): below 50 is At risk; 50–70 needs improvement; 70–90 good performance; above 90 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
+  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Within that, Lead Generation is separately capped at 20 of those 100 points/day, so lead volume alone can't drive a score — conversion activity (Fresh Loan/Takeover/Release/etc.) is needed for the rest. Working days = calendar days minus Sundays minus holidays (holidays assumed at 6/month, or the actual count of known government holidays falling on a working day if that's higher). The current month is month-to-date. Bands (on the capped 0–100 scale): below 50 is At risk; 50–70 needs improvement; 70–90 good performance; above 90 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
 </section>
 
 <section id="orgSec">
@@ -174,7 +174,7 @@ __MONTH_CHECKBOXES__
   </div>
   <div class="tbox">
     <table>
-      <thead><tr><th>Month</th><th>APs active</th><th>Total points</th><th>Avg points/day</th><th>At risk</th><th>Star</th></tr></thead>
+      <thead><tr><th>Month</th><th>APs active</th><th>Avg points/day</th><th>At risk</th><th>Star</th></tr></thead>
       <tbody id="orgTableBody"></tbody>
     </table>
   </div>
@@ -185,7 +185,7 @@ __MONTH_CHECKBOXES__
   <span class="marker">02b · City-wise overview</span>
   <div class="tbox">
     <table>
-      <thead><tr><th>City</th><th>APs</th><th>Total points</th><th>Avg points/day</th><th>At risk</th><th>Needs improvement</th><th>Good performance</th><th>Star</th></tr></thead>
+      <thead><tr><th>City</th><th>APs</th><th>Avg points/day</th><th>At risk</th><th>Needs improvement</th><th>Good performance</th><th>Star</th></tr></thead>
       <tbody id="cityTableBody"></tbody>
     </table>
   </div>
@@ -197,12 +197,12 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Total points</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Total points is the raw sum across the selected duration; Points/day is the capped-at-100 daily average used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
+  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 daily average used for banding (Lead Generation is separately capped at 20 of those 100 points/day). Rows highlighted gold are APs within their first 3 months of joining.</p>
 </section>
 
 </div>
@@ -250,13 +250,10 @@ let activeCity = 'All';
 
 const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 30, leadGen: 10, selfSourceCxMet: 20 };
 
-function points(r){
+function nonLeadPoints(r){
   return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
        + r.privateSale*POINTS.privateSale + r.goldSale*POINTS.goldSale
-       + r.raised*POINTS.raised + r.leadGen*POINTS.leadGen + r.selfSourceCxMet*POINTS.selfSourceCxMet;
-}
-function totalActivity(r){
-  return r.freshLoan + r.takeover + r.release + r.privateSale + r.goldSale + r.raised + r.leadGen + r.selfSourceCxMet;
+       + r.raised*POINTS.raised + r.selfSourceCxMet*POINTS.selfSourceCxMet;
 }
 function band(scorePct){ if(scorePct<50) return 'r'; if(scorePct<70) return 'w'; if(scorePct<90) return 'n'; return 'g'; }
 const BAND_LABEL = {r:'At risk', w:'Needs improvement', n:'Good performance', g:'Star performer'};
@@ -265,17 +262,21 @@ const BAND_LABEL = {r:'At risk', w:'Needs improvement', n:'Good performance', g:
 function isHeldOut(agentId, bandKey){ return bandKey === 'r' && tenureDays(agentId) < 90; }
 function isNewJoiner(agentId){ return tenureDays(agentId) < 90; }
 
+const LEAD_CAP_PER_DAY = 20; // Lead Generation alone can never contribute more than 20 pts/day to the score
+
 // Daily cap: a day (approximated here at the monthly-average level, since day-level data isn't available)
-// can never earn more than 100 points. Capping happens per month, BEFORE summing across multiple selected
-// months, so one very high month can't hide behind averaging with a low month.
+// can never earn more than 100 points overall, and Lead Generation specifically can never earn more than
+// 20 of those 100. Both caps are applied per month, BEFORE summing across multiple selected months, so a
+// strong month can't hide behind averaging with a weak one.
 const SCORED = RAW.map(r => {
   const wd = WD[r.month];
-  const rawPts = points(r);
-  const activity = totalActivity(r);
+  const leadPtsRaw = r.leadGen * POINTS.leadGen;
+  const leadPtsPerDay = wd ? Math.min(leadPtsRaw/wd, LEAD_CAP_PER_DAY) : 0;
+  const rawPts = nonLeadPoints(r) + leadPtsPerDay*wd;
   const ptsPerDayRaw = wd ? rawPts/wd : 0;
   const ptsPerDay = Math.min(ptsPerDayRaw, 100);
   const cappedPts = ptsPerDay * wd;
-  return {...r, city: cityFor(r.agent), rawPts, activity, cappedPts, ptsPerDay, bandKey: band(ptsPerDay)};
+  return {...r, city: cityFor(r.agent), rawPts, cappedPts, ptsPerDay, bandKey: band(ptsPerDay)};
 });
 
 function selectedMonths(){
@@ -296,10 +297,10 @@ function renderCityTabs(){
 function aggregateAgents(rows){
   const byAgent = new Map();
   rows.forEach(r => {
-    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGen:0, selfSourceCxMet:0, rawPts:0, activity:0, cappedPts:0, wd:0};
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGen:0, selfSourceCxMet:0, rawPts:0, cappedPts:0, wd:0};
     cur.freshLoan+=r.freshLoan; cur.takeover+=r.takeover; cur.release+=r.release; cur.privateSale+=r.privateSale;
     cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.leadGen+=r.leadGen; cur.selfSourceCxMet+=r.selfSourceCxMet;
-    cur.rawPts += r.rawPts; cur.activity += r.activity; cur.cappedPts += r.cappedPts; cur.wd += WD[r.month];
+    cur.rawPts += r.rawPts; cur.cappedPts += r.cappedPts; cur.wd += WD[r.month];
     byAgent.set(r.agent, cur);
   });
   return [...byAgent.values()].map(a => {
@@ -314,19 +315,17 @@ function renderOrgTable(months, cityFilter){
     if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
     const agg = list.filter(a => !isHeldOut(a.agent, a.bandKey));
     const n = agg.length;
-    const totalPts = agg.reduce((s,a)=>s+a.rawPts,0);
     const avgPtsPerDay = n ? agg.reduce((s,a)=>s+a.ptsPerDay,0)/n : 0;
     const atRisk = agg.filter(a=>a.bandKey==='r').length;
     const star = agg.filter(a=>a.bandKey==='g').length;
-    return {m, n, totalPts, avgPtsPerDay, atRisk, star};
+    return {m, n, avgPtsPerDay, atRisk, star};
   });
-  const grand = rows.reduce((s,r)=>({n:s.n+r.n, totalPts:s.totalPts+r.totalPts, atRisk:s.atRisk+r.atRisk, star:s.star+r.star}), {n:0,totalPts:0,atRisk:0,star:0});
+  const grand = rows.reduce((s,r)=>({n:s.n+r.n, atRisk:s.atRisk+r.atRisk, star:s.star+r.star}), {n:0,atRisk:0,star:0});
   const grandAvgPtsPerDay = rows.length ? rows.reduce((s,r)=>s+r.avgPtsPerDay,0)/rows.length : 0;
   document.getElementById('orgTableBody').innerHTML = rows.map(r => `
     <tr>
       <td>${MONTH_LABEL[r.m]}</td>
       <td class="num">${r.n}</td>
-      <td class="num">${r.totalPts.toLocaleString()}</td>
       <td class="num">${r.avgPtsPerDay.toFixed(0)}</td>
       <td class="num">${r.atRisk}</td>
       <td class="num">${r.star}</td>
@@ -335,7 +334,6 @@ function renderOrgTable(months, cityFilter){
     <tr style="font-weight:650;">
       <td>Total</td>
       <td class="num">${grand.n}</td>
-      <td class="num">${grand.totalPts.toLocaleString()}</td>
       <td class="num">${grandAvgPtsPerDay.toFixed(0)}</td>
       <td class="num">${grand.atRisk}</td>
       <td class="num">${grand.star}</td>
@@ -349,19 +347,18 @@ function renderCityTable(months, cityFilter){
   const agg = aggregateAgents(rows);
   const byCity = new Map();
   agg.forEach(a => {
-    const cur = byCity.get(a.city) || {city:a.city, n:0, totalPts:0, sumPtsPerDay:0, r:0,w:0,n2:0,g:0};
-    cur.n++; cur.totalPts+=a.rawPts; cur.sumPtsPerDay+=a.ptsPerDay;
+    const cur = byCity.get(a.city) || {city:a.city, n:0, sumPtsPerDay:0, r:0,w:0,n2:0,g:0};
+    cur.n++; cur.sumPtsPerDay+=a.ptsPerDay;
     if (a.bandKey==='r') cur.r++; else if (a.bandKey==='w') cur.w++; else if (a.bandKey==='n') cur.n2++; else cur.g++;
     byCity.set(a.city, cur);
   });
   const cityRows = [...byCity.values()].sort((a,b) => (b.sumPtsPerDay/b.n) - (a.sumPtsPerDay/a.n));
-  const grand = cityRows.reduce((s,c)=>({n:s.n+c.n, totalPts:s.totalPts+c.totalPts, r:s.r+c.r, w:s.w+c.w, n2:s.n2+c.n2, g:s.g+c.g}), {n:0,totalPts:0,r:0,w:0,n2:0,g:0});
+  const grand = cityRows.reduce((s,c)=>({n:s.n+c.n, r:s.r+c.r, w:s.w+c.w, n2:s.n2+c.n2, g:s.g+c.g}), {n:0,r:0,w:0,n2:0,g:0});
   const grandAvgPtsPerDay = cityRows.length ? cityRows.reduce((s,c)=>s+(c.sumPtsPerDay/c.n),0)/cityRows.length : 0;
   document.getElementById('cityTableBody').innerHTML = cityRows.map(c => `
     <tr>
       <td>${c.city}</td>
       <td class="num">${c.n}</td>
-      <td class="num">${c.totalPts.toLocaleString()}</td>
       <td class="num">${(c.sumPtsPerDay/c.n).toFixed(0)}</td>
       <td class="num">${c.r}</td>
       <td class="num">${c.w}</td>
@@ -372,7 +369,6 @@ function renderCityTable(months, cityFilter){
     <tr style="font-weight:650;">
       <td>Total</td>
       <td class="num">${grand.n}</td>
-      <td class="num">${grand.totalPts.toLocaleString()}</td>
       <td class="num">${grandAvgPtsPerDay.toFixed(0)}</td>
       <td class="num">${grand.r}</td>
       <td class="num">${grand.w}</td>
@@ -396,11 +392,9 @@ function render(){
   agg.forEach(r=>{ bandCounts[r.bandKey]++; });
 
   const avgPtsPerDay = n ? agg.reduce((s,r)=>s+r.ptsPerDay,0)/n : 0;
-  const totalPtsAll = agg.reduce((s,r)=>s+r.rawPts,0);
   document.getElementById('orgStats').innerHTML = `
     <div class="stat"><b>${n}</b><span>APs (filtered)</span></div>
-    <div class="stat gold"><b>${totalPtsAll.toLocaleString()}</b><span>total points</span></div>
-    <div class="stat"><b>${avgPtsPerDay.toFixed(0)}</b><span>avg points/day (capped at 100)</span></div>
+    <div class="stat gold"><b>${avgPtsPerDay.toFixed(0)}</b><span>avg points/day (capped at 100)</span></div>
     <div class="stat warn"><b>${bandCounts.r}</b><span>At risk</span></div>
     <div class="stat"><b>${bandCounts.n}</b><span>good performance</span></div>
     <div class="stat good"><b>${bandCounts.g}</b><span>star performers</span></div>
@@ -484,7 +478,6 @@ function render(){
       <td class="num">${r.raised}</td>
       <td class="num">${r.leadGen}</td>
       <td class="num">${r.selfSourceCxMet}</td>
-      <td class="num">${r.rawPts.toLocaleString()}</td>
       <td class="num">${r.ptsPerDay.toFixed(0)}</td>
       <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
     </tr>
