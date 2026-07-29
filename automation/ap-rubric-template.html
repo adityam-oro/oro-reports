@@ -211,7 +211,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>). Points/day is capped at 100 per month (monthly-average approximation, not true day-level). Self-sourced Cx Met is a lower bound — most self-sourced leads don't trace through the <code>sales_visit</code> table. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: 91 of 135 active APs resolved; the remaining 44 will be added once matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>). Self-sourced Cx Met only counts a completed visit that isn't already a Fresh Loan/Takeover/Release/Pvt sale elsewhere, so the same visit is never scored twice. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: 119 of 135 active APs resolved (including the Guntur/Warangal/Karimnagar/Vijayawada double-agent roles previously missed by role-name filtering); the remaining 16 will be added once matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -394,7 +394,7 @@ function render(){
   const avgPtsPerDay = n ? agg.reduce((s,r)=>s+r.ptsPerDay,0)/n : 0;
   document.getElementById('orgStats').innerHTML = `
     <div class="stat"><b>${n}</b><span>APs (filtered)</span></div>
-    <div class="stat gold"><b>${avgPtsPerDay.toFixed(0)}</b><span>avg points/day (capped at 100)</span></div>
+    <div class="stat gold"><b>${avgPtsPerDay.toFixed(0)}</b><span>avg points/day</span></div>
     <div class="stat warn"><b>${bandCounts.r}</b><span>At risk</span></div>
     <div class="stat"><b>${bandCounts.n}</b><span>good performance</span></div>
     <div class="stat good"><b>${bandCounts.g}</b><span>star performers</span></div>
