@@ -151,12 +151,12 @@ __MONTH_CHECKBOXES__
         <tr><td>Private sale completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial private sale</td></tr>
         <tr><td>Gold sale (GBS) completed</td><td class="num">30</td><td>A Gold Buy-Sell visit reaches <code>VISIT_COMPLETED</code> (separate product/table from loan visits)</td></tr>
         <tr><td>Visit raised (not completed)</td><td class="num">15</td><td>The AP did the visit — traveled, engaged the customer — but it was cancelled by the customer rather than completed. A visit that completes earns its completion-type points instead, never this bucket too</td></tr>
-        <tr><td>Lead generation</td><td class="num">10</td><td>A lead the AP sourced themselves — <code>lead_source</code> and <code>appointment_booked_by</code> both match the AP</td></tr>
+        <tr><td>Lead generation</td><td class="num">5</td><td>A lead the AP sourced themselves — <code>lead_source</code> and <code>appointment_booked_by</code> both match the AP. No daily cap</td></tr>
         <tr><td>Self-sourced Cx Met</td><td class="num">20</td><td>A self-sourced lead whose visit actually reached <code>VISIT_COMPLETED</code></td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Within that, Lead Generation is separately capped at 20 of those 100 points/day, so lead volume alone can't drive a score — conversion activity (Fresh Loan/Takeover/Release/etc.) is needed for the rest. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual off-day policy) minus that AP's city's state bank holidays (2026 Federal Bank calendar) that land on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. Bands (on the capped 0–100 scale): below 60 is At risk; 60–75 needs improvement; 75–95 good performance; above 95 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
+  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Lead Generation has no separate daily cap. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual off-day policy) minus that AP's city's state bank holidays (2026 Federal Bank calendar) that land on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. Bands (on the capped 0–100 scale): below 60 is At risk; 60–75 needs improvement; 75–95 good performance; above 95 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
 </section>
 
 <section id="orgSec">
@@ -202,7 +202,7 @@ __MONTH_CHECKBOXES__
       <tbody id="lbBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 daily average used for banding (Lead Generation is separately capped at 20 of those 100 points/day). Rows highlighted gold are APs within their first 3 months of joining.</p>
+  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 daily average used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
 </section>
 
 </div>
@@ -248,7 +248,7 @@ const MONTH_LABEL = JSON.parse(document.getElementById('month-label-data').textC
 const CITIES = ['All', ...new Set(IDENTITY.map(([,,city])=>city))].sort((a,b)=> a==='All'?-1:b==='All'?1:a.localeCompare(b));
 let activeCity = 'All';
 
-const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, leadGen: 10, selfSourceCxMet: 20 };
+const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, leadGen: 5, selfSourceCxMet: 20 };
 
 function nonLeadPoints(r){
   return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
@@ -262,17 +262,15 @@ const BAND_LABEL = {r:'At risk', w:'Needs improvement', n:'Good performance', g:
 function isHeldOut(agentId, bandKey){ return bandKey === 'r' && tenureDays(agentId) < 90; }
 function isNewJoiner(agentId){ return tenureDays(agentId) < 90; }
 
-const LEAD_CAP_PER_DAY = 20; // Lead Generation alone can never contribute more than 20 pts/day to the score
-
 // Daily cap: a day (approximated here at the monthly-average level, since day-level data isn't available)
-// can never earn more than 100 points overall, and Lead Generation specifically can never earn more than
-// 20 of those 100. Both caps are applied per month, BEFORE summing across multiple selected months, so a
-// strong month can't hide behind averaging with a weak one.
+// can never earn more than 100 points overall. Applied per month, BEFORE summing across multiple selected
+// months, so a strong month can't hide behind averaging with a weak one. Lead Generation itself has no
+// separate daily cap (removed 2026-07-31, was 20 pts/day) — a day's overall 100pt ceiling is the only limit.
 const SCORED = RAW.map(r => {
   const city = cityFor(r.agent);
   const wd = (WD[r.month] && WD[r.month][city]) || 0;
   const leadPtsRaw = r.leadGen * POINTS.leadGen;
-  const leadPtsPerDay = wd ? Math.min(leadPtsRaw/wd, LEAD_CAP_PER_DAY) : 0;
+  const leadPtsPerDay = wd ? leadPtsRaw/wd : 0;
   const rawPts = nonLeadPoints(r) + leadPtsPerDay*wd;
   const ptsPerDayRaw = wd ? rawPts/wd : 0;
   const ptsPerDay = Math.min(ptsPerDayRaw, 100);

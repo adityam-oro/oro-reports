@@ -16,10 +16,15 @@
 //                                       shows the customer backed out ("Cancelled by Customer" / "customer_cancelled"),
 //                                       NOT system/auto-cancellations ("Auto-cancelled: ..."). A visit that reaches
 //                                       VISIT_COMPLETED earns its completion-type points instead, never this bucket too.
-//   Lead generation            10 pts  Quali-prod.lead where lead_source AND appointment_booked_by_id both match the
+//   Lead generation             5 pts   Quali-prod.lead where lead_source AND appointment_booked_by_id both match the
 //                                       AP themselves (verified 2026-07-28 — created_by_oro_id alone was inflated by
 //                                       a bulk/automated PX_APP channel; this pair is the definition the user
-//                                       confirmed is used for the equivalent live Metabase card)
+//                                       confirmed is used for the equivalent live Metabase card). Changed 2026-07-31:
+//                                       was 10 pts/lead capped at 20 pts/day; now 5 pts/lead, uncapped, per explicit
+//                                       instruction after reviewing sample/city impact (Bengaluru — the highest
+//                                       lead-volume city — gains the most since it was hitting the old cap in most
+//                                       agent-months; lower-lead-volume APs lose ~half their lead points since they
+//                                       were never capped to begin with).
 //   Self-sourced Cx Met        20 pts  a lead matching the Lead Generation definition above whose linked sales_visit
 //                                       (lead.id -> sales_visit.lead_id) maps to an Oro 2.0 visit
 //                                       (sales_visit.id -> visits.sales_visit_id) that reached VISIT_COMPLETED
@@ -91,7 +96,7 @@ const ROSTER_TOTAL = 135;
 
 const POINTS = {
   freshLoan: 30, takeover: 50, release: 20, privateSale: 20,
-  goldSale: 30, raised: 15, leadGen: 10, selfSourceCxMet: 20,
+  goldSale: 30, raised: 15, leadGen: 5, selfSourceCxMet: 20,
 };
 
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
