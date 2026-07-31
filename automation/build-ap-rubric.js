@@ -16,18 +16,47 @@
 //                                       shows the customer backed out ("Cancelled by Customer" / "customer_cancelled"),
 //                                       NOT system/auto-cancellations ("Auto-cancelled: ..."). A visit that reaches
 //                                       VISIT_COMPLETED earns its completion-type points instead, never this bucket too.
-//   Lead generation             5 pts   Quali-prod.lead where lead_source AND appointment_booked_by_id both match the
-//                                       AP themselves (verified 2026-07-28 — created_by_oro_id alone was inflated by
-//                                       a bulk/automated PX_APP channel; this pair is the definition the user
-//                                       confirmed is used for the equivalent live Metabase card). Changed 2026-07-31:
-//                                       was 10 pts/lead capped at 20 pts/day; now 5 pts/lead, uncapped, per explicit
-//                                       instruction after reviewing sample/city impact (Bengaluru — the highest
-//                                       lead-volume city — gains the most since it was hitting the old cap in most
-//                                       agent-months; lower-lead-volume APs lose ~half their lead points since they
-//                                       were never capped to begin with).
+//   Lead generation (new)       5 pts   Quali-prod.lead_submissions where submitted_by matches the AP, counted
+//                                       once per distinct lead_id (first submission's day), where the lead was
+//                                       EVER accepted (acceptance_status='YES' on any attempt for that lead_id).
+//   Lead generation (existing) 2.5 pts  same lead_submissions source, but the lead_id was NEVER accepted (i.e.
+//                                       it's a resubmission of a lead already in the system) — half credit.
+//                                       Changed 2026-07-31 (second pass): previously sourced from Quali-prod.lead
+//                                       via lead_source+appointment_booked_by_id at a flat 5 pts/lead regardless
+//                                       of accept/reject; switched to lead_submissions specifically to stop a
+//                                       partner from repeatedly resubmitting the same already-known lead for full
+//                                       points (verified ~95% of rejections are exactly that — the lead already
+//                                       existed in the system before the rejected submission, confirmed via
+//                                       lead.created_at predating the submission and lead.duplicate_updated_at
+//                                       being set). Uncapped either way — the 2026-07-31 first-pass change that
+//                                       removed the 20pt/day cap still applies to both tiers.
 //   Self-sourced Cx Met        20 pts  a lead matching the Lead Generation definition above whose linked sales_visit
 //                                       (lead.id -> sales_visit.lead_id) maps to an Oro 2.0 visit
 //                                       (sales_visit.id -> visits.sales_visit_id) that reached VISIT_COMPLETED
+//
+// Double Agent SP-side ladder (added 2026-07-31) — Vijayawada/Guntur/Warangal/Karimnagar APs do both the
+// appraisal job AND the sales-visit booking/conversion job (Quali-prod's sales_visit funnel) under one role.
+// The AP-side of their work was already scored above; this adds their SP-side sales funnel, which had no
+// scoring at all before (the SP rubric only covers Bengaluru/Hyderabad/Pune). Scored per self-sourced
+// lead->sales_visit event (same lead_source+appointment_booked_by_id definition as Lead Gen above),
+// mutually exclusive — only the highest stage a given sales_visit reached earns points, never more than one
+// tier per event. No daily cap, matching the 2026-07-31 Lead Gen change. Not restricted to a hardcoded
+// Double Agent list — it naturally scores zero for any AP who has no self-sourced sales_visit funnel
+// activity, so it generalizes correctly if the Double Agent role ever spreads to other cities.
+//   SP Cx Met         10 pts   sales_visit.status IN (VISIT_COMPLETED_GBS, MAY_TXN, VISIT_CANCELLED_NIAM,
+//                               VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR)
+//   SP Visit Raised    20 pts   sales_visit.status IN (VISIT_COMPLETED_BRL, VISIT_COMPLETED_GL,
+//                               VISIT_CANCELLED_CC) AND lead.conversion_id IS NULL
+//   SP Loan Completed  30 pts   same status set as Visit Raised, but lead.conversion_id IS NOT NULL
+// Calibrated 2026-07-31 against real Double Agent activity (493 self-sourced funnel events, 42 active
+// agents): raise rate ran ~69% (well above SP's 40% target — self-sourced leads convert far better than
+// TM-assigned ones) and loan rate ~79% (matching SP's 80% target almost exactly). That closeness is why a
+// flat per-event ladder was chosen over importing SP's relative-to-target percentage math — the ratios
+// were already near-saturated and wouldn't have added much differentiation. Point values echo existing AP
+// categories: SP Visit Raised = Self-sourced Cx Met's value, SP Loan Completed = Fresh Loan's value. This
+// intentionally stacks with Lead Gen and Fresh Loan/Takeover for the same underlying loan when the same
+// Double Agent also does the physical appraisal — sourcing/conversion effort and appraisal effort are
+// different work, same reasoning as why Lead Gen already stacks with Fresh Loan today.
 //
 // Bridge Loan Complete was dropped 2026-07-28 — Quali-prod's loan_history.loan_id (the only source with a
 // BRL-approval-adjacent timestamp) does not share a key space with Oro 2.0's visits/loans loan_id at all for
@@ -96,7 +125,8 @@ const ROSTER_TOTAL = 135;
 
 const POINTS = {
   freshLoan: 30, takeover: 50, release: 20, privateSale: 20,
-  goldSale: 30, raised: 15, leadGen: 5, selfSourceCxMet: 20,
+  goldSale: 30, raised: 15, leadGenNew: 5, leadGenExisting: 2.5, selfSourceCxMet: 20,
+  spCxMet: 10, spVisitRaised: 20, spLoanCompleted: 30,
 };
 
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
@@ -210,13 +240,14 @@ async function main() {
   const oro2AgentInList = sqlList(oro2AuthIds);
   const authIdToAgentId = new Map(agentIds.map(id => [AUTH_ID_OVERRIDE[id] || id, id]));
 
-  // agent|month -> { freshLoan, takeover, release, privateSale, raised, leadGen, selfSourceCxMet, goldSale } (counts, not points)
+  // agent|month -> { freshLoan, takeover, release, privateSale, raised, leadGenNew, leadGenExisting,
+  // selfSourceCxMet, goldSale, spCxMet, spVisitRaised, spLoanCompleted } (counts, not points)
   const monthAgg = new Map();
   function addCount(agent, day, field, n = 1) {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const key = `${agent}|${month}`;
-    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGen: 0, selfSourceCxMet: 0 };
+    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, selfSourceCxMet: 0, spCxMet: 0, spVisitRaised: 0, spLoanCompleted: 0 };
     cur[field] += n;
     monthAgg.set(key, cur);
   }
@@ -273,16 +304,27 @@ async function main() {
     .map(id => `(${id},'${emailByAgent.get(id).replace(/'/g, "''")}')`)
     .join(',');
 
-  console.log('Fetching self-sourced leads (Quali-prod) for lead-generation points...');
-  const leadQuery = `
-    WITH ap_map (agent_id, email) AS (VALUES ${apMapValues})
-    SELECT m.agent_id, l.id AS lead_id, l.created_at::date AS day
-    FROM lead l JOIN ap_map m ON lower(l.lead_source) = lower(m.email) AND l.appointment_booked_by_id = m.agent_id
-    WHERE l.created_at >= '2026-01-01'
+  // Lead Generation source, changed 2026-07-31 (second pass): Quali-prod.lead_submissions.submitted_by
+  // (the actual "did this partner submit a lead" record, with an approve/reject outcome attached) instead of
+  // matching lead_source/appointment_booked_by_id on the `lead` table itself. Deduped by lead_id (min
+  // submitted_at as the scoring day; bool_or(acceptance_status='YES') as whether it was ever accepted) so a
+  // lead resubmitted many times (seen up to 50x on a single lead_id org-wide) counts once, not once per
+  // attempt. "Ever accepted" = new lead (full points); "never accepted" = a resubmission of an already-known
+  // lead (half points) — verified ~95% of never-accepted leads already existed in the system before this
+  // partner's submission.
+  console.log('Fetching lead_submissions (Quali-prod) for lead-generation points...');
+  const leadSubmissionsQuery = `
+    WITH per_lead AS (
+      SELECT submitted_by, lead_id, min(submitted_at)::date AS day, bool_or(acceptance_status = 'YES') AS approved
+      FROM lead_submissions
+      WHERE submitted_by IN (${agentIds.join(',')}) AND submitted_at >= '2026-01-01'
+      GROUP BY submitted_by, lead_id
+    )
+    SELECT submitted_by, day, approved FROM per_lead
   `;
-  const leadRows = await runQuery(QUALI_DB_ID, leadQuery);
-  console.log(`  ${leadRows.length} self-sourced lead rows`);
-  leadRows.forEach(([agent, , day]) => addCount(String(agent), day, 'leadGen'));
+  const leadSubmissionRows = await runQuery(QUALI_DB_ID, leadSubmissionsQuery);
+  console.log(`  ${leadSubmissionRows.length} distinct-lead submission rows`);
+  leadSubmissionRows.forEach(([agent, day, approved]) => addCount(String(agent), day, approved ? 'leadGenNew' : 'leadGenExisting'));
 
   console.log('Fetching self-sourced lead -> sales_visit links (Quali-prod) for self-source Cx Met...');
   const leadVisitLinkQuery = `
@@ -315,12 +357,38 @@ async function main() {
     });
   }
 
+  // Double Agent SP-side ladder: same self-sourced lead join as Lead Gen/Self-sourced Cx Met above, but
+  // walking the sales_visit funnel instead of the Oro 2.0 visit. Mutually exclusive per sales_visit — only
+  // the highest stage reached scores (Loan Completed > Visit Raised > Cx Met). Naturally scores zero for
+  // any AP with no self-sourced sales_visit activity, so no hardcoded Double Agent list is needed.
+  console.log('Fetching SP-side sales_visit funnel (Quali-prod) for Double Agent scoring...');
+  const spFunnelQuery = `
+    WITH ap_map (agent_id, email) AS (VALUES ${apMapValues})
+    SELECT m.agent_id, sv.status, sv.created_at::date AS day, l.conversion_id
+    FROM lead l JOIN ap_map m ON lower(l.lead_source) = lower(m.email) AND l.appointment_booked_by_id = m.agent_id
+    JOIN sales_visit sv ON sv.lead_id = l.id
+    WHERE l.created_at >= '2026-01-01'
+  `;
+  const spFunnelRows = await runQuery(QUALI_DB_ID, spFunnelQuery);
+  console.log(`  ${spFunnelRows.length} SP-side funnel rows`);
+  const SP_RAISED_STATUSES = new Set(['VISIT_COMPLETED_BRL', 'VISIT_COMPLETED_GL', 'VISIT_CANCELLED_CC']);
+  const SP_CX_MET_STATUSES = new Set(['VISIT_COMPLETED_GBS', 'MAY_TXN', 'VISIT_CANCELLED_NIAM', 'VISIT_CANCELLED_IE', 'VISIT_CANCELLED_GS', 'MAY_TXN_RESCHEDULED', 'MAY_TXN_RNR']);
+  spFunnelRows.forEach(([rawAgent, status, day, conversionId]) => {
+    const agent = String(rawAgent);
+    if (SP_RAISED_STATUSES.has(status)) {
+      if (conversionId != null) addCount(agent, day, 'spLoanCompleted');
+      else addCount(agent, day, 'spVisitRaised');
+    } else if (SP_CX_MET_STATUSES.has(status)) {
+      addCount(agent, day, 'spCxMet');
+    }
+  });
+
   const RAW = [];
   agentIds.forEach(agent => {
     months.forEach(month => {
       const a = monthAgg.get(`${agent}|${month}`);
       if (!a) return; // no activity at all this month — omit
-      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGen, a.selfSourceCxMet]);
+      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.selfSourceCxMet, a.spCxMet, a.spVisitRaised, a.spLoanCompleted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);

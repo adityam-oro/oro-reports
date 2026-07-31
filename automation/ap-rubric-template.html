@@ -150,8 +150,12 @@ __MONTH_CHECKBOXES__
         <tr><td>Release completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial release</td></tr>
         <tr><td>Private sale completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial private sale</td></tr>
         <tr><td>Gold sale (GBS) completed</td><td class="num">30</td><td>A Gold Buy-Sell visit reaches <code>VISIT_COMPLETED</code> (separate product/table from loan visits)</td></tr>
+        <tr><td>SP Cx Met (Double Agent)</td><td class="num">10</td><td>Self-sourced lead's linked sales_visit reaches a customer-met status, no further progress</td></tr>
+        <tr><td>SP Visit Raised (Double Agent)</td><td class="num">20</td><td>Self-sourced sales_visit reaches a raised status without a loan yet</td></tr>
+        <tr><td>SP Loan Completed (Double Agent)</td><td class="num">30</td><td>Self-sourced sales_visit reaches a raised status and the lead converted to a loan</td></tr>
         <tr><td>Visit raised (not completed)</td><td class="num">15</td><td>The AP did the visit — traveled, engaged the customer — but it was cancelled by the customer rather than completed. A visit that completes earns its completion-type points instead, never this bucket too</td></tr>
-        <tr><td>Lead generation</td><td class="num">5</td><td>A lead the AP sourced themselves — <code>lead_source</code> and <code>appointment_booked_by</code> both match the AP. No daily cap</td></tr>
+        <tr><td>Lead generation — new lead</td><td class="num">5</td><td>A lead the AP submitted (<code>lead_submissions.submitted_by</code>) that was ever accepted. Counted once per distinct lead, no daily cap</td></tr>
+        <tr><td>Lead generation — existing lead</td><td class="num">2.5</td><td>Same source, but the lead was never accepted — i.e. a resubmission of a lead already in the system. Half credit, to discourage repeatedly resubmitting the same lead for points</td></tr>
         <tr><td>Self-sourced Cx Met</td><td class="num">20</td><td>A self-sourced lead whose visit actually reached <code>VISIT_COMPLETED</code></td></tr>
       </tbody>
     </table>
@@ -197,7 +201,7 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>Leads</th><th>Self Cx Met</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>New leads</th><th>Existing leads</th><th>Self Cx Met</th><th>SP Cx Met</th><th>SP Raised</th><th>SP Loan</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
@@ -211,7 +215,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>). Self-sourced Cx Met only counts a completed visit that isn't already a Fresh Loan/Takeover/Release/Pvt sale elsewhere, so the same visit is never scored twice. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved (including the Guntur/Warangal/Karimnagar/Vijayawada double-agent roles previously missed by role-name filtering); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>/<code>lead_submissions</code>). Lead generation counts each distinct submitted lead once (deduped by lead_id, not by submission attempt) and pays full points if it was ever accepted, half if never accepted — the same accept/reject-weighted logic used on the SP report. Self-sourced Cx Met only counts a completed visit that isn't already a Fresh Loan/Takeover/Release/Pvt sale elsewhere, so the same visit is never scored twice. SP Cx Met/Raised/Loan (Double Agent) score a self-sourced sales_visit funnel event once, at its highest stage reached only. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved (including the Guntur/Warangal/Karimnagar/Vijayawada double-agent roles previously missed by role-name filtering); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -230,7 +234,7 @@ __WD_DATA__
 __MONTH_LABEL_DATA__
 </script>
 <script>
-const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGen,selfSourceCxMet])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGen,selfSourceCxMet}));
+const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted}));
 const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
 const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
 const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
@@ -248,12 +252,14 @@ const MONTH_LABEL = JSON.parse(document.getElementById('month-label-data').textC
 const CITIES = ['All', ...new Set(IDENTITY.map(([,,city])=>city))].sort((a,b)=> a==='All'?-1:b==='All'?1:a.localeCompare(b));
 let activeCity = 'All';
 
-const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, leadGen: 5, selfSourceCxMet: 20 };
+const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, leadGenNew: 5, leadGenExisting: 2.5, selfSourceCxMet: 20, spCxMet: 10, spVisitRaised: 20, spLoanCompleted: 30 };
 
-function nonLeadPoints(r){
+function totalPoints(r){
   return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
        + r.privateSale*POINTS.privateSale + r.goldSale*POINTS.goldSale
-       + r.raised*POINTS.raised + r.selfSourceCxMet*POINTS.selfSourceCxMet;
+       + r.raised*POINTS.raised + r.leadGenNew*POINTS.leadGenNew + r.leadGenExisting*POINTS.leadGenExisting
+       + r.selfSourceCxMet*POINTS.selfSourceCxMet
+       + r.spCxMet*POINTS.spCxMet + r.spVisitRaised*POINTS.spVisitRaised + r.spLoanCompleted*POINTS.spLoanCompleted;
 }
 function band(scorePct){ if(scorePct<60) return 'r'; if(scorePct<75) return 'w'; if(scorePct<95) return 'n'; return 'g'; }
 const BAND_LABEL = {r:'At risk', w:'Needs improvement', n:'Good performance', g:'Star performer'};
@@ -269,9 +275,7 @@ function isNewJoiner(agentId){ return tenureDays(agentId) < 90; }
 const SCORED = RAW.map(r => {
   const city = cityFor(r.agent);
   const wd = (WD[r.month] && WD[r.month][city]) || 0;
-  const leadPtsRaw = r.leadGen * POINTS.leadGen;
-  const leadPtsPerDay = wd ? leadPtsRaw/wd : 0;
-  const rawPts = nonLeadPoints(r) + leadPtsPerDay*wd;
+  const rawPts = totalPoints(r);
   const ptsPerDayRaw = wd ? rawPts/wd : 0;
   const ptsPerDay = Math.min(ptsPerDayRaw, 100);
   const cappedPts = ptsPerDay * wd;
@@ -296,9 +300,10 @@ function renderCityTabs(){
 function aggregateAgents(rows){
   const byAgent = new Map();
   rows.forEach(r => {
-    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGen:0, selfSourceCxMet:0, rawPts:0, cappedPts:0, wd:0};
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGenNew:0, leadGenExisting:0, selfSourceCxMet:0, spCxMet:0, spVisitRaised:0, spLoanCompleted:0, rawPts:0, cappedPts:0, wd:0};
     cur.freshLoan+=r.freshLoan; cur.takeover+=r.takeover; cur.release+=r.release; cur.privateSale+=r.privateSale;
-    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.leadGen+=r.leadGen; cur.selfSourceCxMet+=r.selfSourceCxMet;
+    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.leadGenNew+=r.leadGenNew; cur.leadGenExisting+=r.leadGenExisting; cur.selfSourceCxMet+=r.selfSourceCxMet;
+    cur.spCxMet+=r.spCxMet; cur.spVisitRaised+=r.spVisitRaised; cur.spLoanCompleted+=r.spLoanCompleted;
     cur.rawPts += r.rawPts; cur.cappedPts += r.cappedPts; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
     byAgent.set(r.agent, cur);
   });
@@ -475,8 +480,12 @@ function render(){
       <td class="num">${r.privateSale}</td>
       <td class="num">${r.goldSale}</td>
       <td class="num">${r.raised}</td>
-      <td class="num">${r.leadGen}</td>
+      <td class="num">${r.leadGenNew}</td>
+      <td class="num">${r.leadGenExisting}</td>
       <td class="num">${r.selfSourceCxMet}</td>
+      <td class="num">${r.spCxMet}</td>
+      <td class="num">${r.spVisitRaised}</td>
+      <td class="num">${r.spLoanCompleted}</td>
       <td class="num">${r.ptsPerDay.toFixed(0)}</td>
       <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
     </tr>

@@ -6,7 +6,14 @@
 //   - Cx Met / Visits Raised: Quali-prod.sales_visit (agent_auth_id, status, visit_time)
 //   - Loan completion: sales_visit.lead_id -> Quali-prod.lead.conversion_id -> Oro production loans.id
 //     (lead.conversion_id is non-null exactly when a loan was actually created off that lead)
-//   - Self-sourced leads: Quali-prod.lead where created_by_oro_id matches the SP's own agent id
+//   - Self-sourced leads: Quali-prod.lead_submissions where submitted_by matches the SP's own agent id.
+//     Changed 2026-07-31 (second pass, matching the AP report's identical change): was
+//     Quali-prod.lead.created_by_oro_id, counting every lead flat. Now deduped by lead_id (a lead
+//     resubmitted many times counts once, attributed to its first submission's day) and weighted — a lead
+//     that was ever accepted counts as 1 full "lead" toward the effort formula below, one that was never
+//     accepted (a resubmission of an already-known lead) counts as half — same accept/reject-weighted
+//     logic as the AP report's Lead Generation, so a partner can't inflate effort by repeatedly resubmitting
+//     the same lead.
 //
 // The roster (agent id -> name/city) is NOT pulled live — it's the curated, tenure-filter-free list of
 // 60 active Tier-1 SPs (Bengaluru/Hyderabad/Pune) agreed on 2026-07-23, hardcoded below. When someone
@@ -164,15 +171,22 @@ async function main() {
   const visitRows = await runQuery(QUALI_DB_ID, visitQuery);
   console.log(`  ${visitRows.length} visit rows`);
 
-  console.log('Fetching self-sourced leads (day-level, for the daily effort cap)...');
+  console.log('Fetching self-sourced lead_submissions (day-level, for the daily effort cap)...');
   const leadQuery = `
-    SELECT created_by_oro_id, created_at::date AS lead_day, count(*) AS n
-    FROM lead
-    WHERE created_by_oro_id IN (${agentInList}) AND created_at >= '2026-01-01'
-    GROUP BY created_by_oro_id, lead_day
+    WITH per_lead AS (
+      SELECT submitted_by, lead_id, min(submitted_at)::date AS day, bool_or(acceptance_status = 'YES') AS approved
+      FROM lead_submissions
+      WHERE submitted_by IN (${agentInList}) AND submitted_at >= '2026-01-01'
+      GROUP BY submitted_by, lead_id
+    )
+    SELECT submitted_by, day,
+      count(*) FILTER (WHERE approved) AS new_leads,
+      count(*) FILTER (WHERE NOT approved) AS existing_leads
+    FROM per_lead
+    GROUP BY submitted_by, day
   `;
   const leadRows = await runQuery(QUALI_DB_ID, leadQuery);
-  console.log(`  ${leadRows.length} agent-day lead rows`);
+  console.log(`  ${leadRows.length} agent-day distinct-lead rows`);
 
   // agent|day -> { cxMet, raised, loans } from visit-level rows.
   const dayStats = new Map();
@@ -189,14 +203,16 @@ async function main() {
     dayStats.set(key, cur);
   });
 
-  // agent|day -> lead count.
+  // agent|day -> { newLeads, existingLeads } (distinct leads, deduped by lead_id above).
   const leadsByDay = new Map();
-  leadRows.forEach(([agent, day, n]) => { leadsByDay.set(`${agent}|${day}`, Number(n)); });
+  leadRows.forEach(([agent, day, newLeads, existingLeads]) => {
+    leadsByDay.set(`${agent}|${day}`, { newLeads: Number(newLeads), existingLeads: Number(existingLeads) });
+  });
 
   // Union of all agent|day keys that have either visit or lead activity.
   const allDayKeys = new Set([...dayStats.keys(), ...leadsByDay.keys()]);
 
-  // agent|month -> { leads, cxMet, raised, loans, capped }
+  // agent|month -> { newLeads, existingLeads, cxMet, raised, loans, capped }
   const monthAgg = new Map();
   allDayKeys.forEach(key => {
     const sep = key.lastIndexOf('|');
@@ -205,12 +221,17 @@ async function main() {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const stats = dayStats.get(key) || { cxMet: 0, raised: 0, loans: 0 };
-    const leads = leadsByDay.get(key) || 0;
-    const cappedUnit = Math.min(stats.cxMet + leads / 2, 6);
+    const { newLeads, existingLeads } = leadsByDay.get(key) || { newLeads: 0, existingLeads: 0 };
+    // Existing (never-accepted, i.e. resubmitted) leads count at half weight toward the effort formula —
+    // same accept/reject-weighted logic as the AP report's Lead Generation, so repeatedly resubmitting an
+    // already-known lead can't inflate a day's effort the way a genuinely new lead does.
+    const weightedLeads = newLeads + existingLeads * 0.5;
+    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 6);
 
     const mkey = `${agent}|${month}`;
-    const cur = monthAgg.get(mkey) || { leads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0 };
-    cur.leads += leads;
+    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0 };
+    cur.newLeads += newLeads;
+    cur.existingLeads += existingLeads;
     cur.cxMet += stats.cxMet;
     cur.raised += stats.raised;
     cur.loans += stats.loans;
@@ -224,7 +245,7 @@ async function main() {
       const mkey = `${agent}|${month}`;
       const a = monthAgg.get(mkey);
       if (!a) return; // no activity at all this month — omit, same convention as the original data
-      RAW.push([agent, month, a.leads, a.cxMet, a.raised, a.loans, Math.round(a.capped * 10) / 10]);
+      RAW.push([agent, month, a.newLeads, a.existingLeads, a.cxMet, a.raised, a.loans, Math.round(a.capped * 10) / 10]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
