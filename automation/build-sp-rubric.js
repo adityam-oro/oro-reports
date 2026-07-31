@@ -73,20 +73,42 @@ const IDENTITY = [
   ["93655","Aniketgopal S","Pune"],
 ];
 
-const CX_MET_STATUSES = ['VISIT_COMPLETED_GL','VISIT_COMPLETED_BRL','MAY_TXN','VISIT_CANCELLED_NIAM','VISIT_CANCELLED_IE','VISIT_CANCELLED_GS','MAY_TXN_RESCHEDULED','MAY_TXN_RNR','VISIT_CANCELLED_CC'];
+// VISIT_COMPLETED_GBS added 2026-07-31 — a completed Gold Buy-Sell customer visit (87 rows Jan-Aug 2026,
+// 21 SPs) that was previously scoring nothing as a Cx Met despite being a genuine completed customer visit.
+const CX_MET_STATUSES = ['VISIT_COMPLETED_GL','VISIT_COMPLETED_BRL','VISIT_COMPLETED_GBS','MAY_TXN','VISIT_CANCELLED_NIAM','VISIT_CANCELLED_IE','VISIT_CANCELLED_GS','MAY_TXN_RESCHEDULED','MAY_TXN_RNR','VISIT_CANCELLED_CC'];
 const RAISED_STATUSES = ['VISIT_COMPLETED_BRL','VISIT_COMPLETED_GL','VISIT_CANCELLED_CC'];
 
 function sqlList(arr) { return arr.map(v => `'${v}'`).join(','); }
 
-// Working days = calendar days minus Sundays. For the current (in-progress) month, only count days
-// up to and including "today" (IST) — matches how "July MTD" worked in the manual-export version.
-function workingDaysInRange(year, month /* 1-12 */, throughDay) {
+// 2026 state-wise bank holiday calendars (source: Federal Bank's 2026 holiday list, supplied 2026-07-31).
+// Only Karnataka/Telangana/Maharashtra matter for this roster's Tier-1 cities (Bengaluru/Hyderabad/Pune).
+const KARNATAKA_HOLIDAYS = ['2026-01-15','2026-01-26','2026-02-15','2026-03-19','2026-03-21','2026-03-31','2026-04-03','2026-04-14','2026-04-20','2026-05-01','2026-05-28','2026-06-26','2026-08-15','2026-08-26','2026-09-14','2026-10-02','2026-10-10','2026-10-20','2026-10-21','2026-10-25','2026-11-01','2026-11-08','2026-11-10','2026-11-27','2026-12-25'];
+const TELANGANA_HOLIDAYS = ['2026-01-15','2026-01-26','2026-02-15','2026-03-03','2026-03-19','2026-03-21','2026-03-27','2026-04-01','2026-04-03','2026-04-05','2026-04-14','2026-05-01','2026-05-27','2026-06-26','2026-08-15','2026-08-26','2026-09-04','2026-09-14','2026-10-02','2026-10-20','2026-11-08','2026-11-24','2026-12-25'];
+const MAHARASHTRA_HOLIDAYS = ['2026-01-26','2026-02-15','2026-02-19','2026-03-03','2026-03-19','2026-03-21','2026-03-26','2026-03-31','2026-04-03','2026-04-14','2026-05-01','2026-05-28','2026-06-26','2026-08-15','2026-08-26','2026-09-14','2026-10-02','2026-10-20','2026-11-08','2026-11-10','2026-11-24','2026-12-25'];
+const CITY_HOLIDAYS = { Bengaluru: KARNATAKA_HOLIDAYS, Hyderabad: TELANGANA_HOLIDAYS, Pune: MAHARASHTRA_HOLIDAYS };
+
+// Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual
+// off-day policy — fixed 2026-07-31, this previously only removed Sundays and never removed the two
+// Saturdays, over-counting every month by 2 days, e.g. January read 27 instead of 25) minus that city's
+// state bank holidays landing on an otherwise-working day. For the current (in-progress) month, only count
+// days up to and including "today" (IST) — matches how "July MTD" worked in the manual-export version.
+function workingDaysInRange(year, month /* 1-12 */, throughDay, holidayList) {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const lastDay = throughDay ? Math.min(throughDay, daysInMonth) : daysInMonth;
+  const saturdaysInMonth = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (new Date(Date.UTC(year, month - 1, d)).getUTCDay() === 6) saturdaysInMonth.push(d);
+  }
+  const offSaturdays = new Set([saturdaysInMonth[1], saturdaysInMonth[3]].filter(d => d !== undefined));
+  const holidaySet = new Set(holidayList || []);
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
   let wd = 0;
   for (let d = 1; d <= lastDay; d++) {
-    const dow = new Date(Date.UTC(year, month - 1, d)).getUTCDay(); // 0 = Sunday
-    if (dow !== 0) wd++;
+    const dow = new Date(Date.UTC(year, month - 1, d)).getUTCDay(); // 0 = Sunday, 6 = Saturday
+    if (dow === 0) continue; // Sunday
+    if (offSaturdays.has(d)) continue; // 2nd/4th Saturday
+    if (holidaySet.has(`${monthKey}-${String(d).padStart(2, '0')}`)) continue; // state bank holiday
+    wd++;
   }
   return wd;
 }
@@ -108,10 +130,15 @@ async function main() {
     if (m > 12) { m = 1; y++; }
   }
 
+  // WD[monthKey][city] — working days differ by city since each city's state bank holidays differ.
   const WD = {};
   months.forEach(key => {
     const [yy, mm] = key.split('-').map(Number);
-    WD[key] = key === currentMonthKey ? workingDaysInRange(yy, mm, todayDay) : workingDaysInRange(yy, mm, null);
+    const throughDay = key === currentMonthKey ? todayDay : null;
+    WD[key] = {};
+    Object.keys(CITY_HOLIDAYS).forEach(city => {
+      WD[key][city] = workingDaysInRange(yy, mm, throughDay, CITY_HOLIDAYS[city]);
+    });
   });
 
   const MONTH_ABBR = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

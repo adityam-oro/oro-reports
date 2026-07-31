@@ -133,7 +133,7 @@ __MONTH_CHECKBOXES__
     <table>
       <thead><tr><th>Metric</th><th>Definition</th><th>Target</th></tr></thead>
       <tbody>
-        <tr><td>Cx Met</td><td>Every visit for the SP (any lead source — not restricted to self-sourced leads) whose status reaches: VISIT_COMPLETED_GL, VISIT_COMPLETED_BRL, MAY_TXN, VISIT_CANCELLED_NIAM, VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR, VISIT_CANCELLED_CC</td><td>6 / day</td></tr>
+        <tr><td>Cx Met</td><td>Every visit for the SP (any lead source — not restricted to self-sourced leads) whose status reaches: VISIT_COMPLETED_GL, VISIT_COMPLETED_BRL, VISIT_COMPLETED_GBS, MAY_TXN, VISIT_CANCELLED_NIAM, VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR, VISIT_CANCELLED_CC</td><td>6 / day</td></tr>
         <tr><td>Callable leads</td><td>Self-sourced only: leads where <code>created_by_oro_id</code> matches the SP's own agent id in <code>Quali-prod.lead</code>.</td><td>2 leads = 1 Cx Met</td></tr>
         <tr><td>Daily cap</td><td>Per SP, per calendar day: <code>min(Cx Met that day + leads that day ÷ 2, 6)</code>. A day cannot contribute more than 6 units no matter how many leads are submitted — this stops a burst of low-effort lead submissions from inflating the monthly effort score</td><td>≤ 6 / day, then summed for the month</td></tr>
         <tr><td>Effort score</td><td>Sum of daily-capped units for the month ÷ (6 × working days)</td><td>≥ 50% clears the effort bar</td></tr>
@@ -143,7 +143,7 @@ __MONTH_CHECKBOXES__
       </tbody>
     </table>
   </div>
-  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays (no holiday calendar available). The current month is month-to-date.</p>
+  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date.</p>
 </section>
 
 <section id="orgSec">
@@ -236,8 +236,9 @@ function classify(e,q,raisePct){ if(raisePct!==undefined && raisePct<35) return'
 const ZONE_LABEL = {r:'At risk', w:'Coaching', n:'Push volume', g:'Star'};
 
 const SCORED = RAW.map(r => {
-  const wd = WD[r.month];
-  const effortPct = (r.capped/(6*wd))*100;
+  const city = cityFor(r.agent);
+  const wd = (WD[r.month] && WD[r.month][city]) || 0;
+  const effortPct = wd ? (r.capped/(6*wd))*100 : 0;
   const raiseRate = r.cx_met>0 ? r.visits_raised/r.cx_met : 0;
   const raiseAch = r.cx_met>0 ? (raiseRate/0.40)*100 : 0;
   const loanRate = r.visits_raised>0 ? r.loan_completed/r.visits_raised : 0;
@@ -248,7 +249,7 @@ const SCORED = RAW.map(r => {
   const raiseAchCapped = Math.min(raiseAch, 100);
   const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
   const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
-  return {...r, city: cityFor(r.agent), effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct,raiseRate*100)};
+  return {...r, city, effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct,raiseRate*100)};
 }).filter(r => CITIES.includes(r.city));
 
 function selectedMonths(){
@@ -317,7 +318,7 @@ function render(){
   const byAgent = new Map();
   rows.forEach(r => {
     const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, leads:0, cx_met:0, visits_raised:0, loan_completed:0, capped:0, wd:0};
-    cur.leads += r.leads; cur.cx_met += r.cx_met; cur.visits_raised += r.visits_raised; cur.loan_completed += r.loan_completed; cur.capped += r.capped; cur.wd += WD[r.month];
+    cur.leads += r.leads; cur.cx_met += r.cx_met; cur.visits_raised += r.visits_raised; cur.loan_completed += r.loan_completed; cur.capped += r.capped; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
     byAgent.set(r.agent, cur);
   });
   const agg = [...byAgent.values()].map(a => {
