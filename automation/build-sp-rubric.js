@@ -226,7 +226,8 @@ async function main() {
     // same accept/reject-weighted logic as the AP report's Lead Generation, so repeatedly resubmitting an
     // already-known lead can't inflate a day's effort the way a genuinely new lead does.
     const weightedLeads = newLeads + existingLeads * 0.5;
-    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 6);
+    // Daily target lowered 6 -> 5 units/day 2026-08-01, per Aditya's decision.
+    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 5);
 
     const mkey = `${agent}|${month}`;
     const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0 };
