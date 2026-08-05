@@ -154,13 +154,20 @@ __MONTH_CHECKBOXES__
         <tr><td>SP Visit Raised (Double Agent)</td><td class="num">20</td><td>Self-sourced sales_visit reaches a raised status without a loan yet</td></tr>
         <tr><td>SP Loan Completed (Double Agent)</td><td class="num">30</td><td>Self-sourced sales_visit reaches a raised status and the lead converted to a loan</td></tr>
         <tr><td>Visit raised (not completed)</td><td class="num">15</td><td>The AP did the visit — traveled, engaged the customer — but it was cancelled by the customer rather than completed. A visit that completes earns its completion-type points instead, never this bucket too</td></tr>
-        <tr><td>Lead generation — new lead</td><td class="num">5</td><td>A lead the AP submitted (<code>lead_submissions.submitted_by</code>) that was ever accepted. Counted once per distinct lead, no daily cap</td></tr>
-        <tr><td>Lead generation — existing lead</td><td class="num">2.5</td><td>Same source, but the lead was never accepted — i.e. a resubmission of a lead already in the system. Half credit, to discourage repeatedly resubmitting the same lead for points</td></tr>
         <tr><td>Self-sourced Cx Met</td><td class="num">20</td><td>A self-sourced lead whose visit actually reached <code>VISIT_COMPLETED</code></td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Lead Generation has no separate daily cap. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual off-day policy) minus that AP's city's state bank holidays (2026 Federal Bank calendar) that land on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. Bands (on the capped 0–100 scale): below 60 is At risk; 60–75 needs improvement; 75–95 good performance; above 95 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
+  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual off-day policy) minus that AP's city's state bank holidays (2026 Federal Bank calendar) that land on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. Bands (on the capped 0–100 scale): below 60 is At risk; 60–75 needs improvement; 75–95 good performance; above 95 is a star performer. Scope: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees, all cities — except APs who are both At risk and still within their first 3 months of joining, who are held out of this view (those who remain within their first 3 months but aren't At risk are shown, highlighted, in the leaderboard). Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Lead bonus (not part of the core score)</th><th>Value</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Lead bonus</td><td class="num">+10</td><td>Added to the AP's final points/day, after the 100pt/day cap (so it can push the final score above 100), if over the selected months the AP <strong>both</strong> submitted an average of 100+ distinct leads per month <strong>and</strong> had 2%+ of those distinct leads convert to a loan. Lead generation itself earns no points toward the core score — this bonus is the only way lead activity affects the score</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">A distinct lead is counted once per <code>lead_id</code> (<code>lead_submissions.submitted_by</code>), whether it was ever accepted (New leads) or never accepted — i.e. a resubmission of an already-known lead (Existing leads). Both count toward the volume floor; the conversion rate is converted leads ÷ total distinct leads (New + Existing). "Converted" means <code>lead.conversion_id</code> is set (the lead resulted in a loan).</p>
 </section>
 
 <section id="orgSec">
@@ -201,12 +208,12 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>New leads</th><th>Existing leads</th><th>Self Cx Met</th><th>SP Cx Met</th><th>SP Raised</th><th>SP Loan</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Raised</th><th>New leads</th><th>Existing leads</th><th>Lead conv %</th><th>Self Cx Met</th><th>SP Cx Met</th><th>SP Raised</th><th>SP Loan</th><th>Lead bonus</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 daily average used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
+  <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 core daily average plus the +10 Lead Bonus if earned (so it can read above 100) — this combined figure is also what's used for banding. Rows highlighted gold are APs within their first 3 months of joining.</p>
 </section>
 
 </div>
@@ -215,7 +222,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>/<code>lead_submissions</code>). Lead generation counts each distinct submitted lead once (deduped by lead_id, not by submission attempt) and pays full points if it was ever accepted, half if never accepted — the same accept/reject-weighted logic used on the SP report. Self-sourced Cx Met only counts a completed visit that isn't already a Fresh Loan/Takeover/Release/Pvt sale elsewhere, so the same visit is never scored twice. SP Cx Met/Raised/Loan (Double Agent) score a self-sourced sales_visit funnel event once, at its highest stage reached only. New-joiner exception: At-risk APs within their first 3 months are held out entirely; others within 3 months are shown and highlighted. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved (including the Guntur/Warangal/Karimnagar/Vijayawada double-agent roles previously missed by role-name filtering); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>sales_visit</code>/<code>lead_submissions</code>). Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. Self-sourced Cx Met only counts a completed visit that isn't already a Fresh Loan/Takeover/Release/Pvt sale elsewhere, so the same visit is never scored twice. SP Cx Met/Raised/Loan (Double Agent) score a self-sourced sales_visit funnel event once, at its highest stage reached only. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are held out entirely; others within 3 months are shown and highlighted. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved (including the Guntur/Warangal/Karimnagar/Vijayawada double-agent roles previously missed by role-name filtering); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -234,39 +241,61 @@ __WD_DATA__
 __MONTH_LABEL_DATA__
 </script>
 <script>
-const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted}));
+const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,leadsConverted,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,leadGenNew,leadGenExisting,leadsConverted,selfSourceCxMet,spCxMet,spVisitRaised,spLoanCompleted}));
 const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
 const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
 const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
 const DOJ_MAP = new Map(IDENTITY.map(([id,,,,doj])=>[id,doj||null]));
 function nameFor(id){ return NAME_BY_ID.get(id) || id; }
 function cityFor(id){ return CITY_MAP.get(id) || 'Unknown'; }
-const TODAY = '2026-07-28';
-function tenureDays(id){
+// Tenure is measured against the END OF THE SELECTED WINDOW, not against real-world "today" — so an AP's
+// new-joiner status reflects how experienced they actually were during the period being viewed. Looking at
+// Jan-Mar shows a Dec joiner as new (they were); looking at Jan-Jun no longer does, since by June they'd
+// aged out of the 3-month window regardless of what today's calendar date happens to be.
+function monthEndDate(monthKey){
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)); // last calendar day of that month
+}
+function tenureDays(id, refDate){
   const doj = DOJ_MAP.get(id);
   if (!doj) return Infinity; // no DOJ on file (long-tenured) — never treated as a new joiner
-  return (new Date(TODAY) - new Date(doj)) / 86400000;
+  return (refDate - new Date(doj)) / 86400000;
 }
 const WD = JSON.parse(document.getElementById('wd-data').textContent);
 const MONTH_LABEL = JSON.parse(document.getElementById('month-label-data').textContent);
 const CITIES = ['All', ...new Set(IDENTITY.map(([,,city])=>city))].sort((a,b)=> a==='All'?-1:b==='All'?1:a.localeCompare(b));
 let activeCity = 'All';
 
-const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, leadGenNew: 5, leadGenExisting: 2.5, selfSourceCxMet: 20, spCxMet: 10, spVisitRaised: 20, spLoanCompleted: 30 };
+// Lead Gen (leadGenNew/leadGenExisting) is intentionally absent here — removed from the core 100pt/day
+// score 2026-08-05. It's tracked separately below and only feeds the Lead Bonus, not totalPoints.
+const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, selfSourceCxMet: 20, spCxMet: 10, spVisitRaised: 20, spLoanCompleted: 30 };
 
 function totalPoints(r){
   return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
        + r.privateSale*POINTS.privateSale + r.goldSale*POINTS.goldSale
-       + r.raised*POINTS.raised + r.leadGenNew*POINTS.leadGenNew + r.leadGenExisting*POINTS.leadGenExisting
+       + r.raised*POINTS.raised
        + r.selfSourceCxMet*POINTS.selfSourceCxMet
        + r.spCxMet*POINTS.spCxMet + r.spVisitRaised*POINTS.spVisitRaised + r.spLoanCompleted*POINTS.spLoanCompleted;
+}
+
+// Lead Bonus: +10 pts added AFTER the core cap (can push a final score above 100) if, over the selected
+// window, the AP both submitted an average of 100+ distinct leads/month AND had 2%+ of those distinct
+// leads convert to a loan. Both required (AND, not OR) — locked in with the user 2026-08-05.
+const LEAD_BONUS_POINTS = 10;
+const LEAD_VOLUME_FLOOR = 100; // distinct leads/month, averaged over the selected window
+const LEAD_CONVERSION_FLOOR = 2; // % of distinct leads with lead.conversion_id set
+function leadBonusFor(totalLeads, totalConverted, numMonths){
+  const avgMonthlyLeads = numMonths ? totalLeads / numMonths : 0;
+  const conversionPct = totalLeads ? (totalConverted / totalLeads) * 100 : 0;
+  const clears = avgMonthlyLeads >= LEAD_VOLUME_FLOOR && conversionPct >= LEAD_CONVERSION_FLOOR;
+  return { bonus: clears ? LEAD_BONUS_POINTS : 0, avgMonthlyLeads, conversionPct, clears };
 }
 function band(scorePct){ if(scorePct<60) return 'r'; if(scorePct<75) return 'w'; if(scorePct<95) return 'n'; return 'g'; }
 const BAND_LABEL = {r:'At risk', w:'Needs improvement', n:'Good performance', g:'Star performer'};
 // New joiners (within their first 3 months) who are currently At risk are held out of every view —
 // they're still ramping up, and an early red flag isn't a fair read on them yet.
-function isHeldOut(agentId, bandKey){ return bandKey === 'r' && tenureDays(agentId) < 90; }
-function isNewJoiner(agentId){ return tenureDays(agentId) < 90; }
+function isHeldOut(agentId, bandKey, refDate){ return bandKey === 'r' && tenureDays(agentId, refDate) < 90; }
+function isNewJoiner(agentId, refDate){ return tenureDays(agentId, refDate) < 90; }
 
 // Daily cap: a day (approximated here at the monthly-average level, since day-level data isn't available)
 // can never earn more than 100 points overall. Applied per month, BEFORE summing across multiple selected
@@ -295,29 +324,36 @@ function renderCityTabs(){
 
 // Aggregate SCORED rows (already capped per-month) to one row per AP across a given set of months —
 // sum the already-capped monthly points and working days, then re-derive ptsPerDay from that blended
-// total (never re-cap a multi-month blend, since each month was already capped before summing). Drop
-// anyone who is At risk and still within their first 3 months of joining.
-function aggregateAgents(rows){
+// total (never re-cap a multi-month blend, since each month was already capped before summing). Then
+// add the Lead Bonus (averaged over monthsInWindow, not just the months the AP has rows for, so a
+// quiet month still counts against the volume floor). Drop anyone who is At risk and still within
+// their first 3 months of joining.
+function aggregateAgents(rows, refDate, monthsInWindow){
   const byAgent = new Map();
   rows.forEach(r => {
-    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGenNew:0, leadGenExisting:0, selfSourceCxMet:0, spCxMet:0, spVisitRaised:0, spLoanCompleted:0, rawPts:0, cappedPts:0, wd:0};
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGenNew:0, leadGenExisting:0, leadsConverted:0, selfSourceCxMet:0, spCxMet:0, spVisitRaised:0, spLoanCompleted:0, rawPts:0, cappedPts:0, wd:0};
     cur.freshLoan+=r.freshLoan; cur.takeover+=r.takeover; cur.release+=r.release; cur.privateSale+=r.privateSale;
-    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.leadGenNew+=r.leadGenNew; cur.leadGenExisting+=r.leadGenExisting; cur.selfSourceCxMet+=r.selfSourceCxMet;
+    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.leadGenNew+=r.leadGenNew; cur.leadGenExisting+=r.leadGenExisting; cur.leadsConverted+=r.leadsConverted; cur.selfSourceCxMet+=r.selfSourceCxMet;
     cur.spCxMet+=r.spCxMet; cur.spVisitRaised+=r.spVisitRaised; cur.spLoanCompleted+=r.spLoanCompleted;
     cur.rawPts += r.rawPts; cur.cappedPts += r.cappedPts; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
     byAgent.set(r.agent, cur);
   });
+  const numMonths = monthsInWindow.length;
   return [...byAgent.values()].map(a => {
-    const ptsPerDay = a.wd ? a.cappedPts/a.wd : 0;
-    return {...a, ptsPerDay, bandKey: band(ptsPerDay)};
-  }).filter(a => !isHeldOut(a.agent, a.bandKey));
+    const corePtsPerDay = a.wd ? Math.min(a.cappedPts/a.wd, 100) : 0;
+    const totalLeads = a.leadGenNew + a.leadGenExisting;
+    const lb = leadBonusFor(totalLeads, a.leadsConverted, numMonths);
+    const ptsPerDay = corePtsPerDay + lb.bonus;
+    return {...a, corePtsPerDay, leadBonus: lb, ptsPerDay, bandKey: band(ptsPerDay)};
+  }).filter(a => !isHeldOut(a.agent, a.bandKey, refDate));
 }
 
 function renderOrgTable(months, cityFilter){
   const rows = months.slice().sort().map(m => {
     let list = SCORED.filter(r => r.month === m);
     if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
-    const agg = list.filter(a => !isHeldOut(a.agent, a.bandKey));
+    const refDate = monthEndDate(m);
+    const agg = aggregateAgents(list, refDate, [m]);
     const n = agg.length;
     const avgPtsPerDay = n ? agg.reduce((s,a)=>s+a.ptsPerDay,0)/n : 0;
     const atRisk = agg.filter(a=>a.bandKey==='r').length;
@@ -348,7 +384,8 @@ function renderOrgTable(months, cityFilter){
 function renderCityTable(months, cityFilter){
   let rows = SCORED.filter(r => months.includes(r.month));
   if (cityFilter !== 'All') rows = rows.filter(r => r.city === cityFilter);
-  const agg = aggregateAgents(rows);
+  const refDate = monthEndDate(months.slice().sort().at(-1));
+  const agg = aggregateAgents(rows, refDate, months);
   const byCity = new Map();
   agg.forEach(a => {
     const cur = byCity.get(a.city) || {city:a.city, n:0, sumPtsPerDay:0, r:0,w:0,n2:0,g:0};
@@ -389,7 +426,8 @@ function render(){
   let rows = SCORED.filter(r => months.includes(r.month));
   if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
 
-  const agg = aggregateAgents(rows);
+  const refDate = monthEndDate(months.slice().sort().at(-1));
+  const agg = aggregateAgents(rows, refDate, months);
 
   const n = agg.length;
   const bandCounts = {r:0,w:0,n:0,g:0};
@@ -471,8 +509,8 @@ function render(){
 
   const sorted = [...agg].sort((a,b)=>b.ptsPerDay-a.ptsPerDay);
   document.getElementById('lbBody').innerHTML = sorted.map(r=>`
-    <tr${isNewJoiner(r.agent) ? ' class="new-joiner"' : ''}>
-      <td>${nameFor(r.agent)}${isNewJoiner(r.agent) ? ' <span class="chip w" title="Joined within the last 3 months">NEW</span>' : ''}</td>
+    <tr${isNewJoiner(r.agent, refDate) ? ' class="new-joiner"' : ''}>
+      <td>${nameFor(r.agent)}${isNewJoiner(r.agent, refDate) ? ' <span class="chip w" title="Joined within the last 3 months">NEW</span>' : ''}</td>
       <td>${r.city}</td>
       <td class="num">${r.freshLoan}</td>
       <td class="num">${r.takeover}</td>
@@ -482,10 +520,12 @@ function render(){
       <td class="num">${r.raised}</td>
       <td class="num">${r.leadGenNew}</td>
       <td class="num">${r.leadGenExisting}</td>
+      <td class="num">${r.leadBonus.conversionPct.toFixed(1)}%</td>
       <td class="num">${r.selfSourceCxMet}</td>
       <td class="num">${r.spCxMet}</td>
       <td class="num">${r.spVisitRaised}</td>
       <td class="num">${r.spLoanCompleted}</td>
+      <td class="num">${r.leadBonus.bonus ? '+' + r.leadBonus.bonus : '—'}</td>
       <td class="num">${r.ptsPerDay.toFixed(0)}</td>
       <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
     </tr>

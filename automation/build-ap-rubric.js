@@ -16,11 +16,19 @@
 //                                       shows the customer backed out ("Cancelled by Customer" / "customer_cancelled"),
 //                                       NOT system/auto-cancellations ("Auto-cancelled: ..."). A visit that reaches
 //                                       VISIT_COMPLETED earns its completion-type points instead, never this bucket too.
-//   Lead generation (new)       5 pts   Quali-prod.lead_submissions where submitted_by matches the AP, counted
+//   Lead generation is NOT part of the core 100pt/day score (removed 2026-08-05, see Lead Bonus below) — the
+//   new/existing counts are still tracked and shown in the report, they just no longer feed totalPoints.
+//   Lead Bonus                +10 pts  Added to an AP's final points/day, AFTER the core 100pt/day cap (so it
+//                                       can push a score above 100), if over the selected window the AP BOTH
+//                                       (a) submitted an average of 100+ distinct leads per month, AND
+//                                       (b) had 2%+ of those distinct leads convert to a loan (lead.conversion_id
+//                                       IS NOT NULL). Both conditions required (AND, not OR) — locked in with
+//                                       the user 2026-08-05.
+//   Lead generation (new)     tracked   Quali-prod.lead_submissions where submitted_by matches the AP, counted
 //                                       once per distinct lead_id (first submission's day), where the lead was
 //                                       EVER accepted (acceptance_status='YES' on any attempt for that lead_id).
-//   Lead generation (existing) 2.5 pts  same lead_submissions source, but the lead_id was NEVER accepted (i.e.
-//                                       it's a resubmission of a lead already in the system) — half credit.
+//   Lead generation (existing) tracked  same lead_submissions source, but the lead_id was NEVER accepted (i.e.
+//                                       it's a resubmission of a lead already in the system).
 //                                       Changed 2026-07-31 (second pass): previously sourced from Quali-prod.lead
 //                                       via lead_source+appointment_booked_by_id at a flat 5 pts/lead regardless
 //                                       of accept/reject; switched to lead_submissions specifically to stop a
@@ -28,8 +36,7 @@
 //                                       points (verified ~95% of rejections are exactly that — the lead already
 //                                       existed in the system before the rejected submission, confirmed via
 //                                       lead.created_at predating the submission and lead.duplicate_updated_at
-//                                       being set). Uncapped either way — the 2026-07-31 first-pass change that
-//                                       removed the 20pt/day cap still applies to both tiers.
+//                                       being set).
 //   Self-sourced Cx Met        20 pts  a lead matching the Lead Generation definition above whose linked sales_visit
 //                                       (lead.id -> sales_visit.lead_id) maps to an Oro 2.0 visit
 //                                       (sales_visit.id -> visits.sales_visit_id) that reached VISIT_COMPLETED
@@ -122,12 +129,6 @@ const IDENTITY = [
 // Total active APs on the latest HR export (135 as of 2026-07-28) — update by hand whenever the roster is
 // re-pulled. IDENTITY.length is the resolved subset of this total; the footer reports both.
 const ROSTER_TOTAL = 135;
-
-const POINTS = {
-  freshLoan: 30, takeover: 50, release: 20, privateSale: 20,
-  goldSale: 30, raised: 15, leadGenNew: 5, leadGenExisting: 2.5, selfSourceCxMet: 20,
-  spCxMet: 10, spVisitRaised: 20, spLoanCompleted: 30,
-};
 
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
 // the org simply didn't populate 'Cancelled by Customer'/'customer_cancelled' text values until July 2026
@@ -247,7 +248,7 @@ async function main() {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const key = `${agent}|${month}`;
-    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, selfSourceCxMet: 0, spCxMet: 0, spVisitRaised: 0, spLoanCompleted: 0 };
+    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0, selfSourceCxMet: 0, spCxMet: 0, spVisitRaised: 0, spLoanCompleted: 0 };
     cur[field] += n;
     monthAgg.set(key, cur);
   }
@@ -320,11 +321,15 @@ async function main() {
       WHERE submitted_by IN (${agentIds.join(',')}) AND submitted_at >= '2026-01-01'
       GROUP BY submitted_by, lead_id
     )
-    SELECT submitted_by, day, approved FROM per_lead
+    SELECT pl.submitted_by, pl.day, pl.approved, (l.conversion_id IS NOT NULL) AS converted
+    FROM per_lead pl JOIN lead l ON l.id = pl.lead_id
   `;
   const leadSubmissionRows = await runQuery(QUALI_DB_ID, leadSubmissionsQuery);
   console.log(`  ${leadSubmissionRows.length} distinct-lead submission rows`);
-  leadSubmissionRows.forEach(([agent, day, approved]) => addCount(String(agent), day, approved ? 'leadGenNew' : 'leadGenExisting'));
+  leadSubmissionRows.forEach(([agent, day, approved, converted]) => {
+    addCount(String(agent), day, approved ? 'leadGenNew' : 'leadGenExisting');
+    if (converted) addCount(String(agent), day, 'leadsConverted');
+  });
 
   console.log('Fetching self-sourced lead -> sales_visit links (Quali-prod) for self-source Cx Met...');
   const leadVisitLinkQuery = `
@@ -388,7 +393,7 @@ async function main() {
     months.forEach(month => {
       const a = monthAgg.get(`${agent}|${month}`);
       if (!a) return; // no activity at all this month — omit
-      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.selfSourceCxMet, a.spCxMet, a.spVisitRaised, a.spLoanCompleted]);
+      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.leadsConverted, a.selfSourceCxMet, a.spCxMet, a.spVisitRaised, a.spLoanCompleted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
