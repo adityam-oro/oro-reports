@@ -38,13 +38,11 @@
 //                                       lead.created_at predating the submission and lead.duplicate_updated_at
 //                                       being set).
 //
-// Cx Met (added 2026-08-05, replacing Self-sourced Cx Met / SP Cx Met / SP Visit Raised / SP Loan Completed —
-// those existed only for the Vijayawada/Guntur/Warangal/Karimnagar Double Agent role, which this report no
-// longer tracks; redefined 2026-08-05 second pass). Cx Met is purely informational, not a separate scored
-// category: it's the AP's raised count (same underlying number as the Raised column, already scored there),
-// not a sum including Fresh/Takeover/Release/Pvt sale/Gold sale — the partner who raises a visit for a lead
-// they sourced is often not the partner who ends up completing the resulting loan, so Cx Met deliberately
-// tracks who raised it rather than who completed it.
+// Self-sourced Cx Met / SP Cx Met / SP Visit Raised / SP Loan Completed (from the removed Double Agent role)
+// and the later "Cx Met" informational column that replaced them were both removed 2026-08-05 (third pass) —
+// the "Raised" column/points above already show every visit an AP raised, so a duplicate column showing the
+// same number under a different label wasn't adding anything. The leaderboard displays this column as
+// "Visit Raised" rather than "Raised" for clarity.
 //
 // Bridge Loan Complete was dropped 2026-07-28 — Quali-prod's loan_history.loan_id (the only source with a
 // BRL-approval-adjacent timestamp) does not share a key space with Oro 2.0's visits/loans loan_id at all for
