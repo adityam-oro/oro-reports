@@ -37,33 +37,14 @@
 //                                       existed in the system before the rejected submission, confirmed via
 //                                       lead.created_at predating the submission and lead.duplicate_updated_at
 //                                       being set).
-//   Self-sourced Cx Met        20 pts  a lead matching the Lead Generation definition above whose linked sales_visit
-//                                       (lead.id -> sales_visit.lead_id) maps to an Oro 2.0 visit
-//                                       (sales_visit.id -> visits.sales_visit_id) that reached VISIT_COMPLETED
 //
-// Double Agent SP-side ladder (added 2026-07-31) — Vijayawada/Guntur/Warangal/Karimnagar APs do both the
-// appraisal job AND the sales-visit booking/conversion job (Quali-prod's sales_visit funnel) under one role.
-// The AP-side of their work was already scored above; this adds their SP-side sales funnel, which had no
-// scoring at all before (the SP rubric only covers Bengaluru/Hyderabad/Pune). Scored per self-sourced
-// lead->sales_visit event (same lead_source+appointment_booked_by_id definition as Lead Gen above),
-// mutually exclusive — only the highest stage a given sales_visit reached earns points, never more than one
-// tier per event. No daily cap, matching the 2026-07-31 Lead Gen change. Not restricted to a hardcoded
-// Double Agent list — it naturally scores zero for any AP who has no self-sourced sales_visit funnel
-// activity, so it generalizes correctly if the Double Agent role ever spreads to other cities.
-//   SP Cx Met         10 pts   sales_visit.status IN (VISIT_COMPLETED_GBS, MAY_TXN, VISIT_CANCELLED_NIAM,
-//                               VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR)
-//   SP Visit Raised    20 pts   sales_visit.status IN (VISIT_COMPLETED_BRL, VISIT_COMPLETED_GL,
-//                               VISIT_CANCELLED_CC) AND lead.conversion_id IS NULL
-//   SP Loan Completed  30 pts   same status set as Visit Raised, but lead.conversion_id IS NOT NULL
-// Calibrated 2026-07-31 against real Double Agent activity (493 self-sourced funnel events, 42 active
-// agents): raise rate ran ~69% (well above SP's 40% target — self-sourced leads convert far better than
-// TM-assigned ones) and loan rate ~79% (matching SP's 80% target almost exactly). That closeness is why a
-// flat per-event ladder was chosen over importing SP's relative-to-target percentage math — the ratios
-// were already near-saturated and wouldn't have added much differentiation. Point values echo existing AP
-// categories: SP Visit Raised = Self-sourced Cx Met's value, SP Loan Completed = Fresh Loan's value. This
-// intentionally stacks with Lead Gen and Fresh Loan/Takeover for the same underlying loan when the same
-// Double Agent also does the physical appraisal — sourcing/conversion effort and appraisal effort are
-// different work, same reasoning as why Lead Gen already stacks with Fresh Loan today.
+// Cx Met (added 2026-08-05, replacing Self-sourced Cx Met / SP Cx Met / SP Visit Raised / SP Loan Completed —
+// those existed only for the Vijayawada/Guntur/Warangal/Karimnagar Double Agent role, which this report no
+// longer tracks). Cx Met is purely informational, not a separate scored category: it's the sum of
+// freshLoan + takeover + release + privateSale + goldSale + raised for that AP — i.e. every appraisal visit
+// where the customer was actually met, whether it completed or was cancelled by the customer after the AP
+// did the work. Each of those is already scored under its own category above; Cx Met just totals them so the
+// report shows "how many customers did this AP actually meet" without inventing new points.
 //
 // Bridge Loan Complete was dropped 2026-07-28 — Quali-prod's loan_history.loan_id (the only source with a
 // BRL-approval-adjacent timestamp) does not share a key space with Oro 2.0's visits/loans loan_id at all for
@@ -74,18 +55,19 @@
 // New-joiner exception: an AP who is At risk and still within their first 3 months of joining (by DOJ) is
 // held out of every table/stat in the report entirely, not just re-labeled.
 //
-// Roster: all active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees
-// across every city (no city exclusion for AP, unlike the SP rubric's Chennai exclusion) — 125 of the 135
-// active people on the 2026-07-28 HR sheet (ROSTER_TOTAL below), resolved to their agent_auth_id via the
-// `users` table (Oro 2.0). The rest could not be resolved (mostly 2025/2026 joiners not yet tagged with an
-// appraisal role in that table, or people promoted to a managerial role) — hardcoded below, update by hand
-// as more get resolved, and update ROSTER_TOTAL whenever a fresh HR export changes the active headcount.
+// Roster: active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees in
+// Chennai, Bengaluru, Hyderabad, and Pune only — Vijayawada/Guntur/Warangal/Karimnagar were dropped
+// 2026-08-05 (see note above IDENTITY). 89 of an estimated 99 active people in that scope (ROSTER_TOTAL
+// below) are resolved to their agent_auth_id via the `users` table (Oro 2.0). The rest could not be
+// resolved (mostly 2025/2026 joiners not yet tagged with an appraisal role in that table, or people promoted
+// to a managerial role) — hardcoded below, update by hand as more get resolved, and update ROSTER_TOTAL
+// whenever a fresh HR export changes the active headcount.
 // Added 2026-07-31: Sandeep Fulchand Lokhande (id 82227) — Oro 2.0's role_name/HR "Office Staff" tag was
 // stale (his role recently changed to AP per the user); confirmed via 236 real GR/release visits Feb-Jul 2026.
 // Cx escalations and recovery-case handling are NOT yet scored — noted in the report as a future addition.
 //
 // Required environment variables (same GitHub Actions secrets as the SP rubric):
-//   METABASE_URL, METABASE_API_KEY, QUALI_DB_ID (Quali-prod: lead/sales_visit),
+//   METABASE_URL, METABASE_API_KEY, QUALI_DB_ID (Quali-prod: lead/lead_submissions),
 //   ORO2_DB_ID (Oro 2.0: visits/gbs_visits)
 
 const fs = require('fs');
@@ -117,18 +99,20 @@ async function runQuery(databaseId, query) {
 }
 
 // [agent_auth_id, name, city, designation, doj] — resolved from the 2026-07-28 HR sheet by matching name
-// (and, where needed, city) against Oro 2.0's `users` table. 124 of 135 active APs resolved; the rest
-// (mostly 2025/2026 joiners or people promoted to management) aren't tagged with an appraisal role in
-// `users` yet — add them by hand once resolved (see chat history 2026-07-28 for the unresolved-name list).
+// (and, where needed, city) against Oro 2.0's `users` table. Scope narrowed 2026-08-05: Vijayawada, Guntur,
+// Warangal, and Karimnagar (the Double Agent cities) were dropped entirely per the user's request — those
+// APs did a hybrid appraisal+sales-visit-booking role that this report no longer tracks.
 // doj is null for anyone who joined more than a year ago (irrelevant to the 3-month new-joiner rule) —
 // only 2026 joiners need the exact date on file.
 const IDENTITY = [
-["265","MANIKANDAN R","Chennai","Senior Appraisal Partner","2021-03-17"],["678","Ramesh AS","Chennai","Senior Appraisal Partner","2021-06-28"],["1441","Bathini Rama mohan Reddy","Bengaluru","Senior Appraisal Partner","2021-12-21"],["1718","Tamilazhagan R","Chennai","Senior Appraisal Partner","2022-01-03"],["1572","Lakshmana","Bengaluru","Appraisal Partner","2022-01-10"],["2169","Praveen Kumar M","Bengaluru","Senior Appraisal Partner","2022-03-01"],["2308","Sachin Danai","Pune","Appraisal Partner","2022-03-04"],["4380","SANTHOSHA K","Bengaluru","Senior Appraisal Partner","2022-06-17"],["24863","Govinda Raju m","Bengaluru","Senior Appraisal Partner","2023-04-01"],["25451","Metari mahipal","Hyderabad","Appraisal Partner","2023-04-18"],["31621","G Srinivasan","Chennai","Appraisal Partner","2023-10-04"],["31619","Sathiya Raja G","Chennai","Appraisal Partner","2023-10-04"],["31840","Algar Harishwar Reddy","Hyderabad","Appraisal Partner","2023-11-08"],["32155","Kalyan Khose","Pune","Senior Appraisal Partner","2023-12-04"],["37388","V Yugender","Hyderabad","Appraisal Partner","2024-04-29"],["48888","Pravin Sampat Ugalmogale","Pune","Appraisal Trainee","2024-05-20"],["39156","Nilagiri Murthy","Hyderabad","Appraisal Partner","2024-06-01"],["41695","Shaik Gouse Mohiddin","Vijayawada","Appraisal Partner","2024-07-02"],["42335","Sandhigari Krishna Swamy","Hyderabad","Appraisal Partner","2024-08-01"],["42546","Hemalatha P","Chennai","Appraisal Partner","2024-08-05"],["84335","Hariprasad K","Hyderabad","Appraisal Partner","2024-08-21"],["43773","K Venkata Chary","Hyderabad","Appraisal Partner","2024-09-02"],["43506","Lingala Ganesh","Hyderabad","Appraisal Partner","2024-09-09"],["45202","Manjunatha P","Bengaluru","Appraisal Partner","2024-11-07"],["47662","Benjaram Bhasker Reddy","Hyderabad","Appraisal Partner","2024-12-03"],["47545","Madu Nagaraju","Vijayawada","Appraisal Partner","2024-12-23"],["53222","Madipalli Praveen","Hyderabad","Appraisal Partner","2025-02-01"],["57109","Nepala Raju","Hyderabad","Appraisal Partner","2025-02-13"],["52712","Sunkari Kartheek","Hyderabad","Appraisal Partner","2025-02-17"],["57803","Korla Navakiran Reddy","Hyderabad","Appraisal Partner","2025-03-10"],["55450","Sudarshan K K","Bengaluru","Appraisal Trainee","2025-03-17"],["59917","Madaka Avinash","Hyderabad","Appraisal Trainee","2025-03-19"],["84337","Laxmanarao A","Vijayawada","Appraisal Partner","2025-04-23"],["62634","Badikela Rajashekar","Hyderabad","Appraisal Partner","2025-05-02"],["59991","Vijay A","Chennai","Appraisal Partner","2025-05-02"],["60800","Nandeesh J","Bengaluru","Appraisal Partner","2025-05-02"],["60794","Nagesh R","Bengaluru","Appraisal Partner","2025-05-02"],["60806","Anand B R","Bengaluru","Appraisal Partner","2025-05-12"],["61519","Yogananda G","Bengaluru","Appraisal Partner","2025-05-12"],["68975","Karim Rahim Khan","Pune","Appraisal Trainee","2025-06-02"],["62229","Baddam Jana Reddy","Hyderabad","Appraisal Partner","2025-06-05"],["66211","Mala Vannur Swamy","Bengaluru","Appraisal Trainee","2025-06-24"],["65822","Ramkumar Ramadass","Bengaluru","Appraisal Trainee","2025-07-01"],["68479","Kusuma Revanth","Hyderabad","Appraisal Trainee","2025-07-16"],["68973","DHARAVATH SRINU","Hyderabad","Appraisal Partner","2025-07-16"],["68972","Karthik B V","Bengaluru","Appraisal Trainee","2025-08-06"],["69039","Yathish R","Bengaluru","Appraisal Partner","2025-08-11"],["73501","Muddsar Naim Shaikh","Pune","Appraisal Trainee","2025-08-13"],["80311","Gopi Vinoth","Chennai","Appraisal Partner","2025-08-22"],["70599","Vidiyala Venkatesh","Hyderabad","Appraisal Partner","2025-09-08"],["72797","Jagan H","Chennai","Appraisal Trainee","2025-09-18"],["71495","Manepally Srikanth","Hyderabad","Appraisal Partner","2025-09-25"],["71463","Pradeep Kancharla","Warangal","Appraisal Partner","2025-09-26"],["71985","Madu Satyanarayana","Vijayawada","Appraisal Partner","2025-09-29"],["73950","Kandakatla Hareesh","Warangal","Appraisal Partner","2025-10-06"],["73945","Devualapally Praveen","Warangal","Appraisal Trainee","2025-10-06"],["71652","Arun Kumaran S","Chennai","Appraisal Partner","2025-10-07"],["72762","Kavuluri Dorasani","Guntur","Appraisal Partner","2025-10-13"],["72995","Myakala Srinivas","Karimnagar","Appraisal Trainee","2025-10-21"],["72943","Velishoju Mahesh","Karimnagar","Appraisal Trainee","2025-10-21"],["72952","Shaik Sattar","Karimnagar","Appraisal Partner","2025-10-21"],["72949","Dadi Ilaiah","Karimnagar","Appraisal Partner","2025-10-24"],["84323","Srikanth M","Warangal","Appraisal Partner","2025-11-03"],["77528","Manohara M B","Bengaluru","Appraisal Trainee","2025-11-11"],["80345","Kamarajan K","Chennai","Senior Appraisal Partner","2025-11-15"],["76701","Ragam Abhishek","Karimnagar","Appraisal Partner","2025-11-17"],["76714","Gundoju Shiva","Karimnagar","Appraisal Partner","2025-11-17"],["77672","Syed Faisal","Hyderabad","Appraisal Trainee","2025-11-17"],["78761","T Goutham","Hyderabad","Appraisal Trainee","2025-11-17"],["75618","Pradeep Rao Daggu","Hyderabad","Appraisal Partner","2025-11-17"],["77670","Thigulla Sheshu Goud","Hyderabad","Appraisal Partner","2025-11-17"],["76552","Pagidimarri Y Chary","Hyderabad","Appraisal Partner","2025-11-17"],["76667","Gurram Chandra Shekar","Hyderabad","Appraisal Partner","2025-11-17"],["75811","Talla Venkataraju","Guntur","Appraisal Partner","2025-11-24"],["84339","Sandeep C","Karimnagar","Appraisal Partner","2025-11-27"],["77507","Naveen Karkal","Bengaluru","Appraisal Trainee","2025-12-01"],["77908","Manjunath A","Bengaluru","Appraisal Trainee","2025-12-01"],["79715","Kanuma Naresh","Hyderabad","Appraisal Trainee","2025-12-03"],["77662","S Maruthi Kumar","Hyderabad","Appraisal Partner","2025-12-05"],["77522","Basavaraju M","Bengaluru","Senior Appraisal Partner","2025-12-08"],["80840","Sanket Ram Waghchoure","Pune","Appraisal Trainee","2025-12-15"],["78398","Chandra Shekar N","Bengaluru","Appraisal Partner","2025-12-22"],["79424","Lingampalli Ajay","Karimnagar","Appraisal Trainee","2026-01-02"],["79231","Durisheti Balachander","Karimnagar","Appraisal Trainee","2026-01-03"],["78980","Vengala Ravi Kumar","Warangal","Appraisal Partner","2026-01-05"],["81708","Shanthappa J Shivanagi","Bengaluru","Appraisal Partner","2026-01-09"],["84327","Pratik VS","Pune","Appraisal Trainee","2026-01-16"],["84336","Dillibabu M","Chennai","Appraisal Trainee","2026-01-22"],["86352","Pavanprasad B","Vijayawada","Appraisal Trainee","2026-02-05"],["87528","Shivaprasad K","Pune","Appraisal Trainee","2026-02-11"],["85106","Gangunaidu K","Hyderabad","Appraisal Partner","2026-02-12"],["84324","Deva D","Chennai","Appraisal Trainee","2026-02-16"],["84325","Gokulnath R","Chennai","Appraisal Trainee","2026-02-16"],["86225","Renuka K","Hyderabad","Appraisal Partner","2026-02-20"],["87530","Pallavi RK","Pune","Appraisal Partner","2026-02-26"],["88729","Arun BS","Bengaluru","Senior Appraisal Partner","2026-03-05"],["88292","Paramesh C","Hyderabad","Appraisal Partner","2026-03-05"],["86494","Aniket B","Pune","Appraisal Trainee","2026-03-06"],["88730","Hemanthkumar MK","Bengaluru","Appraisal Partner","2026-03-17"],["89697","Vamsimohan K","Vijayawada","Appraisal Trainee","2026-03-23"],["89872","Narendrakumar B","Vijayawada","Appraisal Trainee","2026-03-23"],["89696","Kumarreddy R","Vijayawada","Appraisal Trainee","2026-04-01"],["93451","Chandu V","Vijayawada","Appraisal Trainee","2026-04-02"],["90718","Vinaykumar T","Hyderabad","Appraisal Trainee","2026-04-06"],["93452","Rakshanaanandraju D","Vijayawada","Appraisal Trainee","2026-04-06"],["90725","Yathin M","Hyderabad","Appraisal Trainee","2026-04-06"],["90740","Suresh G","Bengaluru","Appraisal Trainee","2026-04-06"],["91800","Runay S","Hyderabad","Appraisal Trainee","2026-04-08"],["91801","Balasatish L","Hyderabad","Appraisal Partner","2026-04-13"],["93454","Sasidhar G","Vijayawada","Appraisal Trainee","2026-04-16"],["93446","Udaybhanu J","Vijayawada","Appraisal Trainee","2026-04-16"],["91802","Praneeth Kumar","Hyderabad","Appraisal Trainee","2026-04-17"],["89738","Nagarjuna KV","Guntur","Appraisal Trainee","2026-04-20"],["93267","Sachin DE","Warangal","Appraisal Trainee","2026-05-11"],["92786","Musthafa V","Hyderabad","Appraisal Trainee","2026-05-11"],["92785","Shamkumar S","Chennai","Senior Appraisal Partner","2026-05-12"],["92393","Narsingrao M","Hyderabad","Appraisal Partner","2026-05-18"],["93901","Sairajesh SH","Pune","Appraisal Partner","2026-05-19"],["95406","Durgaprasad KV","Guntur","Appraisal Partner","2026-06-10"],["94706","Vivek M","Warangal","Appraisal Trainee","2026-06-16"],["94705","Madhukar D","Warangal","Appraisal Trainee","2026-06-16"],["94704","Bhanuprakash M","Warangal","Appraisal Trainee","2026-06-16"],["95962","Vijaykanth RR","Guntur","Appraisal Trainee","2026-06-17"],["95411","Shaik A","Vijayawada","Appraisal Partner","2026-07-01"],["82227","Sandeep Fulchand Lokhande","Pune","Appraisal Partner","2024-06-01"],
+["265","MANIKANDAN R","Chennai","Senior Appraisal Partner","2021-03-17"],["678","Ramesh AS","Chennai","Senior Appraisal Partner","2021-06-28"],["1441","Bathini Rama mohan Reddy","Bengaluru","Senior Appraisal Partner","2021-12-21"],["1718","Tamilazhagan R","Chennai","Senior Appraisal Partner","2022-01-03"],["1572","Lakshmana","Bengaluru","Appraisal Partner","2022-01-10"],["2169","Praveen Kumar M","Bengaluru","Senior Appraisal Partner","2022-03-01"],["2308","Sachin Danai","Pune","Appraisal Partner","2022-03-04"],["4380","SANTHOSHA K","Bengaluru","Senior Appraisal Partner","2022-06-17"],["24863","Govinda Raju m","Bengaluru","Senior Appraisal Partner","2023-04-01"],["25451","Metari mahipal","Hyderabad","Appraisal Partner","2023-04-18"],["31621","G Srinivasan","Chennai","Appraisal Partner","2023-10-04"],["31619","Sathiya Raja G","Chennai","Appraisal Partner","2023-10-04"],["31840","Algar Harishwar Reddy","Hyderabad","Appraisal Partner","2023-11-08"],["32155","Kalyan Khose","Pune","Senior Appraisal Partner","2023-12-04"],["37388","V Yugender","Hyderabad","Appraisal Partner","2024-04-29"],["48888","Pravin Sampat Ugalmogale","Pune","Appraisal Trainee","2024-05-20"],["39156","Nilagiri Murthy","Hyderabad","Appraisal Partner","2024-06-01"],["42335","Sandhigari Krishna Swamy","Hyderabad","Appraisal Partner","2024-08-01"],["42546","Hemalatha P","Chennai","Appraisal Partner","2024-08-05"],["84335","Hariprasad K","Hyderabad","Appraisal Partner","2024-08-21"],["43773","K Venkata Chary","Hyderabad","Appraisal Partner","2024-09-02"],["43506","Lingala Ganesh","Hyderabad","Appraisal Partner","2024-09-09"],["45202","Manjunatha P","Bengaluru","Appraisal Partner","2024-11-07"],["47662","Benjaram Bhasker Reddy","Hyderabad","Appraisal Partner","2024-12-03"],["53222","Madipalli Praveen","Hyderabad","Appraisal Partner","2025-02-01"],["57109","Nepala Raju","Hyderabad","Appraisal Partner","2025-02-13"],["52712","Sunkari Kartheek","Hyderabad","Appraisal Partner","2025-02-17"],["57803","Korla Navakiran Reddy","Hyderabad","Appraisal Partner","2025-03-10"],["55450","Sudarshan K K","Bengaluru","Appraisal Trainee","2025-03-17"],["59917","Madaka Avinash","Hyderabad","Appraisal Trainee","2025-03-19"],["62634","Badikela Rajashekar","Hyderabad","Appraisal Partner","2025-05-02"],["59991","Vijay A","Chennai","Appraisal Partner","2025-05-02"],["60800","Nandeesh J","Bengaluru","Appraisal Partner","2025-05-02"],["60794","Nagesh R","Bengaluru","Appraisal Partner","2025-05-02"],["60806","Anand B R","Bengaluru","Appraisal Partner","2025-05-12"],["61519","Yogananda G","Bengaluru","Appraisal Partner","2025-05-12"],["68975","Karim Rahim Khan","Pune","Appraisal Trainee","2025-06-02"],["62229","Baddam Jana Reddy","Hyderabad","Appraisal Partner","2025-06-05"],["66211","Mala Vannur Swamy","Bengaluru","Appraisal Trainee","2025-06-24"],["65822","Ramkumar Ramadass","Bengaluru","Appraisal Trainee","2025-07-01"],["68479","Kusuma Revanth","Hyderabad","Appraisal Trainee","2025-07-16"],["68973","DHARAVATH SRINU","Hyderabad","Appraisal Partner","2025-07-16"],["68972","Karthik B V","Bengaluru","Appraisal Trainee","2025-08-06"],["69039","Yathish R","Bengaluru","Appraisal Partner","2025-08-11"],["73501","Muddsar Naim Shaikh","Pune","Appraisal Trainee","2025-08-13"],["80311","Gopi Vinoth","Chennai","Appraisal Partner","2025-08-22"],["70599","Vidiyala Venkatesh","Hyderabad","Appraisal Partner","2025-09-08"],["72797","Jagan H","Chennai","Appraisal Trainee","2025-09-18"],["71495","Manepally Srikanth","Hyderabad","Appraisal Partner","2025-09-25"],["71652","Arun Kumaran S","Chennai","Appraisal Partner","2025-10-07"],["77528","Manohara M B","Bengaluru","Appraisal Trainee","2025-11-11"],["80345","Kamarajan K","Chennai","Senior Appraisal Partner","2025-11-15"],["77672","Syed Faisal","Hyderabad","Appraisal Trainee","2025-11-17"],["78761","T Goutham","Hyderabad","Appraisal Trainee","2025-11-17"],["75618","Pradeep Rao Daggu","Hyderabad","Appraisal Partner","2025-11-17"],["77670","Thigulla Sheshu Goud","Hyderabad","Appraisal Partner","2025-11-17"],["76552","Pagidimarri Y Chary","Hyderabad","Appraisal Partner","2025-11-17"],["76667","Gurram Chandra Shekar","Hyderabad","Appraisal Partner","2025-11-17"],["77507","Naveen Karkal","Bengaluru","Appraisal Trainee","2025-12-01"],["77908","Manjunath A","Bengaluru","Appraisal Trainee","2025-12-01"],["79715","Kanuma Naresh","Hyderabad","Appraisal Trainee","2025-12-03"],["77662","S Maruthi Kumar","Hyderabad","Appraisal Partner","2025-12-05"],["77522","Basavaraju M","Bengaluru","Senior Appraisal Partner","2025-12-08"],["80840","Sanket Ram Waghchoure","Pune","Appraisal Trainee","2025-12-15"],["78398","Chandra Shekar N","Bengaluru","Appraisal Partner","2025-12-22"],["81708","Shanthappa J Shivanagi","Bengaluru","Appraisal Partner","2026-01-09"],["84327","Pratik VS","Pune","Appraisal Trainee","2026-01-16"],["84336","Dillibabu M","Chennai","Appraisal Trainee","2026-01-22"],["87528","Shivaprasad K","Pune","Appraisal Trainee","2026-02-11"],["85106","Gangunaidu K","Hyderabad","Appraisal Partner","2026-02-12"],["84324","Deva D","Chennai","Appraisal Trainee","2026-02-16"],["84325","Gokulnath R","Chennai","Appraisal Trainee","2026-02-16"],["86225","Renuka K","Hyderabad","Appraisal Partner","2026-02-20"],["87530","Pallavi RK","Pune","Appraisal Partner","2026-02-26"],["88729","Arun BS","Bengaluru","Senior Appraisal Partner","2026-03-05"],["88292","Paramesh C","Hyderabad","Appraisal Partner","2026-03-05"],["86494","Aniket B","Pune","Appraisal Trainee","2026-03-06"],["88730","Hemanthkumar MK","Bengaluru","Appraisal Partner","2026-03-17"],["90718","Vinaykumar T","Hyderabad","Appraisal Trainee","2026-04-06"],["90725","Yathin M","Hyderabad","Appraisal Trainee","2026-04-06"],["90740","Suresh G","Bengaluru","Appraisal Trainee","2026-04-06"],["91800","Runay S","Hyderabad","Appraisal Trainee","2026-04-08"],["91801","Balasatish L","Hyderabad","Appraisal Partner","2026-04-13"],["91802","Praneeth Kumar","Hyderabad","Appraisal Trainee","2026-04-17"],["92786","Musthafa V","Hyderabad","Appraisal Trainee","2026-05-11"],["92785","Shamkumar S","Chennai","Senior Appraisal Partner","2026-05-12"],["92393","Narsingrao M","Hyderabad","Appraisal Partner","2026-05-18"],["93901","Sairajesh SH","Pune","Appraisal Partner","2026-05-19"],["82227","Sandeep Fulchand Lokhande","Pune","Appraisal Partner","2024-06-01"],
 ];
 
-// Total active APs on the latest HR export (135 as of 2026-07-28) — update by hand whenever the roster is
-// re-pulled. IDENTITY.length is the resolved subset of this total; the footer reports both.
-const ROSTER_TOTAL = 135;
+// Total active APs on the latest HR export (135 as of 2026-07-28), MINUS an estimated 36 in the four
+// removed cities (Vijayawada/Guntur/Warangal/Karimnagar) — that's the resolved-in-IDENTITY count for those
+// cities before the 2026-08-05 scope cut; the unresolved remainder wasn't split by city in the original HR
+// sheet, so this is an approximation. Update by hand whenever the roster is re-pulled.
+const ROSTER_TOTAL = 99;
 
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
 // the org simply didn't populate 'Cancelled by Customer'/'customer_cancelled' text values until July 2026
@@ -152,9 +136,8 @@ const AUTH_ID_OVERRIDE = {
 function sqlList(arr) { return arr.map(v => `'${v}'`).join(','); }
 
 // 2026 state-wise bank holiday calendars (source: Federal Bank's 2026 holiday list, supplied 2026-07-31),
-// restricted to the 5 states the AP roster's cities fall in. These are on top of the Sunday/2nd-4th-Saturday
+// restricted to the states the AP roster's cities fall in. These are on top of the Sunday/2nd-4th-Saturday
 // rule below — a holiday landing on a day already off (Sunday, or a 2nd/4th Saturday) doesn't double-subtract.
-const ANDHRA_PRADESH_HOLIDAYS = ['2026-01-15','2026-01-26','2026-02-15','2026-03-03','2026-03-19','2026-03-20','2026-03-27','2026-04-01','2026-04-03','2026-04-14','2026-05-01','2026-05-27','2026-06-25','2026-08-15','2026-08-25','2026-09-04','2026-09-14','2026-10-02','2026-10-20','2026-11-08','2026-12-25'];
 const TELANGANA_HOLIDAYS = ['2026-01-15','2026-01-26','2026-02-15','2026-03-03','2026-03-19','2026-03-21','2026-03-27','2026-04-01','2026-04-03','2026-04-05','2026-04-14','2026-05-01','2026-05-27','2026-06-26','2026-08-15','2026-08-26','2026-09-04','2026-09-14','2026-10-02','2026-10-20','2026-11-08','2026-11-24','2026-12-25'];
 const KARNATAKA_HOLIDAYS = ['2026-01-15','2026-01-26','2026-02-15','2026-03-19','2026-03-21','2026-03-31','2026-04-03','2026-04-14','2026-04-20','2026-05-01','2026-05-28','2026-06-26','2026-08-15','2026-08-26','2026-09-14','2026-10-02','2026-10-10','2026-10-20','2026-10-21','2026-10-25','2026-11-01','2026-11-08','2026-11-10','2026-11-27','2026-12-25'];
 const TAMIL_NADU_HOLIDAYS = ['2026-01-01','2026-01-15','2026-01-16','2026-01-17','2026-01-26','2026-02-01','2026-03-19','2026-03-21','2026-03-31','2026-04-01','2026-04-03','2026-04-14','2026-05-01','2026-05-28','2026-06-26','2026-08-15','2026-08-26','2026-09-04','2026-09-14','2026-10-02','2026-10-19','2026-10-20','2026-11-08','2026-12-25'];
@@ -165,10 +148,6 @@ const CITY_HOLIDAYS = {
   Chennai: TAMIL_NADU_HOLIDAYS,
   Bengaluru: KARNATAKA_HOLIDAYS,
   Hyderabad: TELANGANA_HOLIDAYS,
-  Warangal: TELANGANA_HOLIDAYS,
-  Karimnagar: TELANGANA_HOLIDAYS,
-  Vijayawada: ANDHRA_PRADESH_HOLIDAYS,
-  Guntur: ANDHRA_PRADESH_HOLIDAYS,
   Pune: MAHARASHTRA_HOLIDAYS,
 };
 
@@ -242,13 +221,13 @@ async function main() {
   const authIdToAgentId = new Map(agentIds.map(id => [AUTH_ID_OVERRIDE[id] || id, id]));
 
   // agent|month -> { freshLoan, takeover, release, privateSale, raised, leadGenNew, leadGenExisting,
-  // selfSourceCxMet, goldSale, spCxMet, spVisitRaised, spLoanCompleted } (counts, not points)
+  // leadsConverted, goldSale } (counts, not points)
   const monthAgg = new Map();
   function addCount(agent, day, field, n = 1) {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const key = `${agent}|${month}`;
-    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0, selfSourceCxMet: 0, spCxMet: 0, spVisitRaised: 0, spLoanCompleted: 0 };
+    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0 };
     cur[field] += n;
     monthAgg.set(key, cur);
   }
@@ -294,17 +273,6 @@ async function main() {
   console.log(`  ${gbsRows.length} gbs_visits rows`);
   gbsRows.forEach(([rawAgent, day]) => addCount(authIdToAgentId.get(rawAgent) || rawAgent, day, 'goldSale'));
 
-  // Self-sourced = lead_source AND appointment_booked_by_id both match the AP (confirmed 2026-07-28 —
-  // this is the definition behind the equivalent live Metabase card; created_by_oro_id alone is inflated
-  // by a bulk/automated PX_APP channel and isn't a trustworthy self-sourcing signal on its own).
-  console.log('Fetching AP emails (Oro 2.0 users) for the self-sourced lead match...');
-  const emailRows = await runQuery(ORO2_DB_ID, `SELECT id, email_id FROM users WHERE id IN (${agentIds.join(',')})`);
-  const emailByAgent = new Map(emailRows.map(([id, email]) => [String(id), email]));
-  const apMapValues = agentIds
-    .filter(id => emailByAgent.has(id))
-    .map(id => `(${id},'${emailByAgent.get(id).replace(/'/g, "''")}')`)
-    .join(',');
-
   // Lead Generation source, changed 2026-07-31 (second pass): Quali-prod.lead_submissions.submitted_by
   // (the actual "did this partner submit a lead" record, with an approve/reject outcome attached) instead of
   // matching lead_source/appointment_booked_by_id on the `lead` table itself. Deduped by lead_id (min
@@ -331,69 +299,12 @@ async function main() {
     if (converted) addCount(String(agent), day, 'leadsConverted');
   });
 
-  console.log('Fetching self-sourced lead -> sales_visit links (Quali-prod) for self-source Cx Met...');
-  const leadVisitLinkQuery = `
-    WITH ap_map (agent_id, email) AS (VALUES ${apMapValues})
-    SELECT m.agent_id, sv.id AS sales_visit_id
-    FROM lead l JOIN ap_map m ON lower(l.lead_source) = lower(m.email) AND l.appointment_booked_by_id = m.agent_id
-    JOIN sales_visit sv ON sv.lead_id = l.id
-    WHERE l.created_at >= '2026-01-01'
-  `;
-  const leadVisitLinkRows = await runQuery(QUALI_DB_ID, leadVisitLinkQuery);
-  console.log(`  ${leadVisitLinkRows.length} lead->sales_visit link rows`);
-  if (leadVisitLinkRows.length > 0) {
-    const agentBySalesVisitId = new Map(leadVisitLinkRows.map(([agent, svId]) => [svId, String(agent)]));
-    const salesVisitIdList = [...agentBySalesVisitId.keys()].join(',');
-    // Excludes visits already scored as Fresh Loan/Takeover/Release/Pvt sale — verified 2026-07-29 that
-    // 100% of self-sourced completions matched here were ALSO a loan/GR completion, meaning every point
-    // awarded under this category was double-counting a visit already scored elsewhere. Self-source Cx Met
-    // should only fire for a genuine customer-met visit that isn't itself one of those completions.
-    const completedVisitRows = await runQuery(ORO2_DB_ID, `
-      SELECT sales_visit_id, visit_time::date AS day
-      FROM visits
-      WHERE sales_visit_id IN (${salesVisitIdList}) AND visit_status = 'VISIT_COMPLETED'
-        AND (loan_subtype IS NULL OR loan_subtype NOT IN ('FRESH_LOAN','TAKEOVER'))
-        AND (visit_type IS NULL OR visit_type != 'GR')
-    `);
-    console.log(`  ${completedVisitRows.length} of those reached VISIT_COMPLETED without already being scored elsewhere`);
-    completedVisitRows.forEach(([svId, day]) => {
-      const agent = agentBySalesVisitId.get(svId);
-      if (agent) addCount(agent, day, 'selfSourceCxMet');
-    });
-  }
-
-  // Double Agent SP-side ladder: same self-sourced lead join as Lead Gen/Self-sourced Cx Met above, but
-  // walking the sales_visit funnel instead of the Oro 2.0 visit. Mutually exclusive per sales_visit — only
-  // the highest stage reached scores (Loan Completed > Visit Raised > Cx Met). Naturally scores zero for
-  // any AP with no self-sourced sales_visit activity, so no hardcoded Double Agent list is needed.
-  console.log('Fetching SP-side sales_visit funnel (Quali-prod) for Double Agent scoring...');
-  const spFunnelQuery = `
-    WITH ap_map (agent_id, email) AS (VALUES ${apMapValues})
-    SELECT m.agent_id, sv.status, sv.created_at::date AS day, l.conversion_id
-    FROM lead l JOIN ap_map m ON lower(l.lead_source) = lower(m.email) AND l.appointment_booked_by_id = m.agent_id
-    JOIN sales_visit sv ON sv.lead_id = l.id
-    WHERE l.created_at >= '2026-01-01'
-  `;
-  const spFunnelRows = await runQuery(QUALI_DB_ID, spFunnelQuery);
-  console.log(`  ${spFunnelRows.length} SP-side funnel rows`);
-  const SP_RAISED_STATUSES = new Set(['VISIT_COMPLETED_BRL', 'VISIT_COMPLETED_GL', 'VISIT_CANCELLED_CC']);
-  const SP_CX_MET_STATUSES = new Set(['VISIT_COMPLETED_GBS', 'MAY_TXN', 'VISIT_CANCELLED_NIAM', 'VISIT_CANCELLED_IE', 'VISIT_CANCELLED_GS', 'MAY_TXN_RESCHEDULED', 'MAY_TXN_RNR']);
-  spFunnelRows.forEach(([rawAgent, status, day, conversionId]) => {
-    const agent = String(rawAgent);
-    if (SP_RAISED_STATUSES.has(status)) {
-      if (conversionId != null) addCount(agent, day, 'spLoanCompleted');
-      else addCount(agent, day, 'spVisitRaised');
-    } else if (SP_CX_MET_STATUSES.has(status)) {
-      addCount(agent, day, 'spCxMet');
-    }
-  });
-
   const RAW = [];
   agentIds.forEach(agent => {
     months.forEach(month => {
       const a = monthAgg.get(`${agent}|${month}`);
       if (!a) return; // no activity at all this month — omit
-      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.leadsConverted, a.selfSourceCxMet, a.spCxMet, a.spVisitRaised, a.spLoanCompleted]);
+      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.leadsConverted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
@@ -404,7 +315,7 @@ async function main() {
   }).join('\n');
 
   const refreshedAt = ist.toISOString().slice(0, 16).replace('T', ' ') + ' IST';
-  const statusLine = `Oro 2.0 visits/gbs_visits ⋈ Quali-prod lead/sales_visit (live) · ${IDENTITY.length} active APs, all cities`;
+  const statusLine = `Oro 2.0 visits/gbs_visits ⋈ Quali-prod lead/lead_submissions (live) · ${IDENTITY.length} active APs, Chennai/Bengaluru/Hyderabad/Pune`;
 
   let template = fs.readFileSync(path.join(__dirname, 'ap-rubric-template.html'), 'utf8');
   template = template
