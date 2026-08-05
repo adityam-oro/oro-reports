@@ -338,7 +338,10 @@ function renderCityTabs(){
 // quiet month still counts against the volume floor). Every agent is returned with a `heldOut` flag
 // (At risk + within first 3 months) rather than being dropped here — callers that want the old
 // exclude-from-stats behavior filter it out themselves; the leaderboard keeps them, highlighted.
-function aggregateAgents(rows, refDate, monthsInWindow){
+// cityFilter is used only to backfill new joiners who have zero rows at all for this window (see below) —
+// without it, an AP who joined mid-window with no logged activity yet would be invisible everywhere,
+// including the leaderboard, rather than shown/highlighted as intended.
+function aggregateAgents(rows, refDate, monthsInWindow, cityFilter){
   const byAgent = new Map();
   rows.forEach(r => {
     const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0};
@@ -348,7 +351,7 @@ function aggregateAgents(rows, refDate, monthsInWindow){
     byAgent.set(r.agent, cur);
   });
   const numMonths = monthsInWindow.length;
-  return [...byAgent.values()].map(a => {
+  const results = [...byAgent.values()].map(a => {
     const corePtsPerDay = a.wd ? Math.min(a.cappedPts/a.wd, 100) : 0;
     const totalLeads = a.leadGenNew + a.leadGenExisting;
     const lb = leadBonusFor(totalLeads, a.leadsConverted, numMonths);
@@ -357,6 +360,22 @@ function aggregateAgents(rows, refDate, monthsInWindow){
     const cxMet = cxMetFor(a);
     return {...a, corePtsPerDay, leadBonus: lb, ptsPerDay, bandKey, cxMet, heldOut: isHeldOut(a.agent, bandKey, refDate)};
   });
+
+  // Backfill: any AP within their first 3 months (by tenure at refDate) who has ZERO rows in this window
+  // at all (RAW simply omits agent-months with no activity) would otherwise be invisible here, even though
+  // they're exactly who the held-out highlight exists for. Add them as an explicit zero row — always
+  // bandKey 'r' (0 pts/day) and therefore always heldOut, so they show blue in the leaderboard but never
+  // pollute the stats/plot/city-table views that filter heldOut out.
+  const present = new Set(results.map(a => a.agent));
+  const zeroLeadBonus = leadBonusFor(0, 0, numMonths);
+  const backfilled = IDENTITY
+    .filter(([id,,city]) => !present.has(id) && (cityFilter === undefined || cityFilter === 'All' || city === cityFilter) && tenureDays(id, refDate) < 90)
+    .map(([id,,city]) => ({
+      agent:id, city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0,
+      leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0,
+      corePtsPerDay:0, leadBonus:zeroLeadBonus, ptsPerDay:0, bandKey:'r', cxMet:0, heldOut:true,
+    }));
+  return [...results, ...backfilled];
 }
 
 function renderOrgTable(months, cityFilter){
@@ -364,7 +383,7 @@ function renderOrgTable(months, cityFilter){
     let list = SCORED.filter(r => r.month === m);
     if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
     const refDate = monthEndDate(m);
-    const agg = aggregateAgents(list, refDate, [m]).filter(a => !a.heldOut);
+    const agg = aggregateAgents(list, refDate, [m], cityFilter).filter(a => !a.heldOut);
     const n = agg.length;
     const avgPtsPerDay = n ? agg.reduce((s,a)=>s+a.ptsPerDay,0)/n : 0;
     const atRisk = agg.filter(a=>a.bandKey==='r').length;
@@ -396,7 +415,7 @@ function renderCityTable(months, cityFilter){
   let rows = SCORED.filter(r => months.includes(r.month));
   if (cityFilter !== 'All') rows = rows.filter(r => r.city === cityFilter);
   const refDate = monthEndDate(months.slice().sort().at(-1));
-  const agg = aggregateAgents(rows, refDate, months).filter(a => !a.heldOut);
+  const agg = aggregateAgents(rows, refDate, months, cityFilter).filter(a => !a.heldOut);
   const byCity = new Map();
   agg.forEach(a => {
     const cur = byCity.get(a.city) || {city:a.city, n:0, sumPtsPerDay:0, r:0,w:0,n2:0,g:0};
@@ -438,7 +457,7 @@ function render(){
   if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
 
   const refDate = monthEndDate(months.slice().sort().at(-1));
-  const aggAll = aggregateAgents(rows, refDate, months);
+  const aggAll = aggregateAgents(rows, refDate, months, activeCity);
   const agg = aggAll.filter(a => !a.heldOut);
   const heldOutList = aggAll.filter(a => a.heldOut);
 
