@@ -164,7 +164,7 @@ __MONTH_CHECKBOXES__
       <thead><tr><th>Not part of the core score</th><th>Value</th><th>Definition</th></tr></thead>
       <tbody>
         <tr><td>Lead bonus</td><td class="num">+10</td><td>Added to the AP's final points/day, after the 100pt/day cap (so it can push the final score above 100), if over the selected months the AP <strong>both</strong> submitted an average of 100+ distinct leads per month <strong>and</strong> had 2%+ of those distinct leads convert to a loan. Lead generation itself earns no points toward the core score — this bonus is the only way lead activity affects the score</td></tr>
-        <tr><td>Cx Met</td><td class="num">—</td><td>Informational only, no points of its own: Fresh + Takeover + Release + Pvt sale + Gold sale + Raised, added together — every appraisal visit where the AP actually met the customer, whether it completed or was cancelled by the customer afterward. Each component is already scored above under its own category</td></tr>
+        <tr><td>Cx Met</td><td class="num">—</td><td>Informational only, no points of its own: visits this partner raised (same count as the Raised column above, already scored there). Deliberately excludes Fresh/Takeover/Release/Pvt sale/Gold sale — the partner who raises a visit for a lead they sourced often isn't the one who ends up completing the loan, so this tracks who raised it, not who completed it</td></tr>
       </tbody>
     </table>
   </div>
@@ -223,7 +223,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. Cx Met is an informational total (Fresh + Takeover + Release + Pvt sale + Gold sale + Raised) — every appraisal visit where the customer was actually met — not a separate scored category. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved in Chennai/Bengaluru/Hyderabad/Pune (Vijayawada/Guntur/Warangal/Karimnagar dropped 2026-08-05 — those APs did a hybrid appraisal+sales-visit role this report no longer tracks); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. Cx Met is an informational count of visits this partner raised (same underlying count as Raised, already scored there) — not a separate scored category, and deliberately excludes Fresh/Takeover/Release/Pvt sale/Gold sale, since the partner who raises a visit isn't always the one who completes it. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved in Chennai/Bengaluru/Hyderabad/Pune (Vijayawada/Guntur/Warangal/Karimnagar dropped 2026-08-05 — those APs did a hybrid appraisal+sales-visit role this report no longer tracks); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -278,11 +278,13 @@ function totalPoints(r){
 }
 
 // Cx Met (added 2026-08-05, replacing the Self Cx Met/SP Cx Met/SP Raised/SP Loan columns that existed only
-// for the now-removed Double Agent cities): purely informational, not a separate scored category — it's
-// every appraisal visit where the customer was actually met, whether it completed or was cancelled by the
-// customer after the AP did the work. Each component is already scored under its own category above.
+// for the now-removed Double Agent cities; redefined 2026-08-05 second pass) — purely informational, not a
+// separate scored category. Deliberately excludes Fresh/Takeover/Release/Pvt sale/Gold sale: the partner who
+// raises a visit for a lead they sourced is often not the partner who ends up completing the resulting loan,
+// so Cx Met tracks only visits THIS partner raised, not who completed what. Currently identical to the
+// Raised column's count — kept as a separate field/column for that distinct meaning, not as a shortcut.
 function cxMetFor(r){
-  return r.freshLoan + r.takeover + r.release + r.privateSale + r.goldSale + r.raised;
+  return r.raised;
 }
 
 // Lead Bonus: +10 pts added AFTER the core cap (can push a final score above 100) if, over the selected
