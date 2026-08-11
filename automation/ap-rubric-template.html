@@ -125,6 +125,10 @@ a { color: var(--gold); }
       <span class="label">Oro · AP scoring</span>
     </div>
     <h1>AP rubric — full report</h1>
+    <div class="citytabs" id="fPage" style="margin-top:.6rem;">
+      <button class="citytab active" data-page="scoring">Scoring</button>
+      <button class="citytab" data-page="rules">Rules</button>
+    </div>
     <div class="filters">
       <div>
         <span class="label" style="display:block;margin-bottom:.35rem;">Months (pick any)</span>
@@ -143,125 +147,41 @@ __MONTH_CHECKBOXES__
 
 <div class="wrap">
 
+<div id="tabpage-rules" style="display:none;">
+
 <section id="rulesSec">
-  <span class="marker">01 · Rules of scoring</span>
+  <span class="marker">Rules of scoring</span>
   <div class="tbox">
     <table>
-      <thead><tr><th>Activity</th><th>Points</th><th>Definition</th></tr></thead>
+      <thead><tr><th>Activity</th><th>Points</th></tr></thead>
       <tbody>
-        <tr><td>Fresh Loan completed</td><td class="num">30</td><td>Visit reaches <code>VISIT_COMPLETED</code> with <code>loan_subtype = FRESH_LOAN</code></td></tr>
-        <tr><td>Takeover completed</td><td class="num">50</td><td>Visit reaches <code>VISIT_COMPLETED</code> with <code>loan_subtype = TAKEOVER</code></td></tr>
-        <tr><td>Release completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial release</td></tr>
-        <tr><td>Private sale completed</td><td class="num">20</td><td>Visit reaches <code>RELEASE_VISIT_COMPLETED</code> with a full or partial private sale</td></tr>
-        <tr><td>Gold sale (GBS) completed</td><td class="num">30</td><td>A Gold Buy-Sell visit reaches <code>VISIT_COMPLETED</code> (separate product/table from loan visits)</td></tr>
-        <tr><td>Visit raised (not completed)</td><td class="num">15</td><td>The AP did the visit — traveled, engaged the customer — but it was cancelled by the customer rather than completed. A visit that completes earns its completion-type points instead, never this bucket too. Shown as "Visit Raised" in the leaderboard</td></tr>
+        <tr><td>Fresh Loan completed</td><td class="num">30</td></tr>
+        <tr><td>Takeover completed</td><td class="num">50</td></tr>
+        <tr><td>Release completed</td><td class="num">20</td></tr>
+        <tr><td>Private sale completed</td><td class="num">20</td></tr>
+        <tr><td>Gold sale (GBS) completed</td><td class="num">30</td></tr>
+        <tr><td>Visit raised (customer cancelled, not completed)</td><td class="num">15</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">Objective: 100 points/day. Points/day is capped at 100 — a day (approximated at the monthly-average level: total points ÷ working days) can never contribute more than 100, capped before summing across multiple selected months, so a stronger month can't be blended with a weaker one to dodge the cap. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month (Oro's actual off-day policy) minus that AP's city's state bank holidays (2026 Federal Bank calendar) that land on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. Bands (on the capped 0–100 scale): below 60 is At risk; 60–75 needs improvement; 75–95 good performance; above 95 is a star performer. Scope: active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees in Chennai, Bengaluru, Hyderabad, and Pune — except APs who are both At risk and still within their first 3 months of joining, who are excluded from every stat and chart above but still shown (highlighted blue) in the leaderboard. Cx escalations and recovery-case handling are tracked separately and are <strong>not yet incorporated into this score</strong> — noted here for future inclusion.</p>
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Not part of the core score</th><th>Value</th><th>Definition</th></tr></thead>
-      <tbody>
-        <tr><td>Lead bonus</td><td class="num">+10</td><td>Added to the AP's final points/day, after the 100pt/day cap (so it can push the final score above 100), if over the selected months the AP <strong>both</strong> submitted an average of 100+ distinct leads per month <strong>and</strong> had 2%+ of those distinct leads convert to a loan. Lead generation itself earns no points toward the core score — this bonus is the only way lead activity affects the score</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="caption">A distinct lead is counted once per <code>lead_id</code> (<code>lead_submissions.submitted_by</code>), whether it was ever accepted (New leads) or never accepted — i.e. a resubmission of an already-known lead (Existing leads). Both count toward the volume floor; the conversion rate is converted leads ÷ total distinct leads (New + Existing). "Converted" means <code>lead.conversion_id</code> is set (the lead resulted in a loan). Lead counts include all lead origins (partner app, customer app, and others) per the user's instruction — not filtered by source channel.</p>
-</section>
-
-<section id="leadRulesSec">
-  <span class="marker">01b · Lead bonus — rules explained</span>
-  <p>The Lead Bonus is the only way sending leads affects your score. Here is everything you need to know about it, in plain language.</p>
+  <p class="caption">Goal: 100 points a day. We add up your points for the months picked above, divide by your working days, and cap it at 100/day so one great month can't hide a bad one. Bands: below 60 At risk, 60–75 Needs improvement, 75–95 Good, above 95 Star. Covers Chennai, Bengaluru, Hyderabad, and Pune.</p>
 
   <div class="tbox">
     <table>
-      <thead><tr><th>Term</th><th>What it means</th></tr></thead>
+      <thead><tr><th>Lead bonus</th><th>Rule</th></tr></thead>
       <tbody>
-        <tr><td>A lead</td><td>Any customer lead you send us. It can come from any source — the partner app, the customer app, or anywhere else. We do not care where it came from, only that you sent it.</td></tr>
-        <tr><td>Counted once</td><td>Each lead is counted only one time, even if you send the same lead more than once. Sending it again does not give you extra credit.</td></tr>
-        <tr><td>New lead</td><td>A lead that we accepted the first time it came in. This means it was a genuinely new customer we did not already have.</td></tr>
-        <tr><td>Existing lead</td><td>A lead that was never accepted, meaning it's a customer we already had in our system before you sent it. It still gets counted as a lead you sent, but it is not a new customer.</td></tr>
-        <tr><td>Converted lead</td><td>A lead that went all the way and turned into an actual loan.</td></tr>
-        <tr><td>Conversion %</td><td>Converted leads ÷ total leads you sent, as a percentage. This shows how many of your leads are turning into real business, not just how many leads you send.</td></tr>
+        <tr><td>Volume</td><td>Send 100+ leads a month, on average.</td></tr>
+        <tr><td>Quality</td><td>2%+ of those leads turn into a loan.</td></tr>
+        <tr><td>Bonus</td><td><strong>+10 points</strong> — only if both rules above are true at the same time.</td></tr>
       </tbody>
     </table>
   </div>
-
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Bonus rule</th><th>What you need to do</th></tr></thead>
-      <tbody>
-        <tr><td>Rule 1 — Volume</td><td>Send an average of <strong>100 or more leads every month</strong>. We add up all your leads over the months you're being scored on, then divide by the number of months — even months where you sent nothing still count toward the average.</td></tr>
-        <tr><td>Rule 2 — Quality</td><td>At least <strong>2 out of every 100 leads</strong> you send must turn into a loan (2%+ conversion).</td></tr>
-        <tr><td>The bonus</td><td><strong>Both rules must be true at the same time.</strong> Sending a lot of leads with no conversions does not earn it. Having a great conversion rate on very few leads does not earn it either. You need both volume and quality together.</td></tr>
-        <tr><td>What you get</td><td>+10 points added to your points/day above, on top of everything else you already earn.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="caption"><strong>What does NOT count:</strong> loans you close yourself by doing the appraisal visit (Fresh Loan, Takeover, and so on) are scored separately above — they are not part of the Lead Bonus. The Lead Bonus only looks at loans that came from a lead <strong>you personally sent us</strong>.</p>
-</section>
-
-<section id="leadWhySec">
-  <span class="marker">01c · Why 100 leads and 2%?</span>
-  <p><strong>Why 100 leads a month?</strong> Because that is a real, hard number — not one picked out of thin air. Only partners in Bengaluru ever send this many leads. No partner in Chennai, Hyderabad, or Pune has hit this mark, not even once, not even in their best month. So 100 is the true bar that only the busiest partners can clear.</p>
-  <p><strong>Why 2% conversion?</strong> We looked at how many leads turn into an actual loan, city by city, over four different time windows. The tables below show the count of partners in each conversion band.</p>
-  <p>In Chennai, Hyderabad, and Pune, almost every partner already sits above 2%. Moving the bar up or down barely changes anything there — most partners pass either way, so 2% is not really "testing" them.</p>
-  <p>Bengaluru is different. Its partners are spread out across every band — some near 0%, some well above 2%. That means 2% is the point where Bengaluru partners actually split into two clear groups: partners who send <em>good</em> leads, and partners who just send <em>a lot</em> of leads.</p>
-  <p><strong>In short:</strong> 100 leads/month picks out the partners who send enough leads. 2% conversion then picks out, among them, the ones sending leads that actually turn into loans — instead of just leads for the sake of leads.</p>
-
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Jan–Mar</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
-      <tbody>
-        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">3</td></tr>
-        <tr><td>Bengaluru</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">12</td><td class="num">2</td><td class="num">3</td></tr>
-        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">24</td><td class="num">1</td><td class="num">13</td></tr>
-        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Apr–Jun</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
-      <tbody>
-        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
-        <tr><td>Bengaluru</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">6</td><td class="num">5</td><td class="num">0</td></tr>
-        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">28</td><td class="num">4</td><td class="num">4</td></tr>
-        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">0</td><td class="num">1</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Jul–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
-      <tbody>
-        <tr><td>Chennai</td><td class="num">0</td><td class="num">2</td><td class="num">2</td><td class="num">11</td><td class="num">0</td><td class="num">0</td></tr>
-        <tr><td>Bengaluru</td><td class="num">11</td><td class="num">3</td><td class="num">1</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
-        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">26</td><td class="num">6</td><td class="num">0</td></tr>
-        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">3</td><td class="num">0</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Jan–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
-      <tbody>
-        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
-        <tr><td>Bengaluru</td><td class="num">0</td><td class="num">7</td><td class="num">3</td><td class="num">9</td><td class="num">5</td><td class="num">0</td></tr>
-        <tr><td>Hyderabad</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">31</td><td class="num">3</td><td class="num">0</td></tr>
-        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">0</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="caption">Each cell is a count of partners. "0 leads" means the partner sent no leads at all in that time window, so there is no conversion number to show for them. These four tables are fixed reference windows (Jan–Mar, Apr–Jun, Jul–till date, Jan–till date) and do not change with the month filter above — they are here to explain the rule, not to be filtered.</p>
+  <p class="caption">A lead is any customer lead you send us, from any source, counted once. "Converted" means it became a loan. This does not include loans you close yourself by doing the appraisal visit — those are already scored above.</p>
+  <p class="caption"><strong>Why these numbers:</strong> 100/month is a real bar — no partner outside Bengaluru has ever hit it. 2% is the point where Bengaluru partners split into two groups — good leads vs. just a lot of leads. Partners in the other three cities are almost always above 2% anyway, so this rule mostly matters for Bengaluru.</p>
 </section>
 
 <section id="leadCitySec">
-  <span class="marker">01d · Lead generation &amp; conversion by city</span>
+  <span class="marker">Lead generation &amp; conversion by city</span>
   <div class="tbox">
     <table>
       <thead><tr>
@@ -271,8 +191,12 @@ __MONTH_CHECKBOXES__
       <tbody id="leadCityTableBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the months selected above (always shows all four cities, regardless of the city tab). "Gets the bonus" means both rules are true at the same time for that city's partners over the selected months.</p>
+  <p class="caption">Reflects the months picked above (always shows all four cities).</p>
 </section>
+
+</div>
+
+<div id="tabpage-scoring">
 
 <section id="orgSec">
   <span class="marker">02 · Org view — month over month</span>
@@ -319,6 +243,8 @@ __MONTH_CHECKBOXES__
   </div>
   <p class="caption">Reflects the city and months selected above. Sorted by points/day, descending. One row per AP — totals summed across selected months, then rescored. Points/day is the capped-at-100 core daily average plus the +10 Lead Bonus if earned (so it can read above 100) — this combined figure is also what's used for banding. Rows highlighted gold are APs within their first 3 months of joining; rows highlighted blue are At risk AND within their first 3 months — held out of every stat and chart above, but still shown here so nobody drops out of sight entirely.</p>
 </section>
+
+</div>
 
 </div>
 
@@ -425,6 +351,18 @@ function renderCityTabs(){
   el.innerHTML = CITIES.map(c => `<button class="citytab${c===activeCity?' active':''}" data-city="${c}">${c}</button>`).join('');
   el.querySelectorAll('.citytab').forEach(btn => btn.addEventListener('click', () => { activeCity = btn.dataset.city; render(); }));
 }
+
+// Scoring / Rules page tabs — Rules is a static explainer plus the one live table, so it only needs to
+// show/hide; it doesn't need its own render pass.
+document.querySelectorAll('#fPage .citytab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#fPage .citytab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const page = btn.dataset.page;
+    document.getElementById('tabpage-scoring').style.display = page === 'scoring' ? '' : 'none';
+    document.getElementById('tabpage-rules').style.display = page === 'rules' ? '' : 'none';
+  });
+});
 
 // Aggregate SCORED rows (already capped per-month) to one row per AP across a given set of months —
 // sum the already-capped monthly points and working days, then re-derive ptsPerDay from that blended
