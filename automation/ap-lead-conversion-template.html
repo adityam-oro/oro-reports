@@ -114,9 +114,10 @@ __MONTH_CHECKBOXES__
 <div class="wrap">
 
 <section id="rulesSec">
-  <span class="marker">01 · What this measures</span>
-  <p>Every distinct lead an AP submitted (<code>lead_submissions.submitted_by</code>, deduped by <code>lead_id</code>, all origins — partner app, customer app, and others), and what share of those specific leads went on to convert to a loan (<code>lead.conversion_id</code> set on that same lead). This is <strong>not</strong> the AP's total loan activity — Fresh Loan/Takeover completions from their own appraisal visits aren't counted here, only loans traced back to a lead they personally submitted.</p>
-  <p class="caption">Lead Bonus reference (from the AP Rubric report): +10 pts if an AP averages 100+ distinct leads/month <strong>and</strong> 2%+ of those leads convert, over the selected window — both required. "Avg leads/month" below is always total leads ÷ number of months selected, regardless of how many of those months had zero activity.</p>
+  <span class="marker">01 · What this shows</span>
+  <p>How many leads each partner sent us, and how many of those leads turned into a loan. We count every lead the partner sent, from any source (partner app, customer app, or anything else). We count each lead only once, even if it was sent more than one time.</p>
+  <p>This is <strong>not</strong> the partner's total loan work. It does not include loans they closed by doing the appraisal visit themselves. It only counts loans that came from a lead <strong>they personally sent us</strong>.</p>
+  <p class="caption">Bonus rule (from the AP Rubric report): a partner gets +10 points if, on average, they send 100+ leads a month <strong>and</strong> 2%+ of those leads turn into a loan — both must be true. "Avg leads/month" is always total leads divided by the number of months picked above, even if some of those months had no activity at all.</p>
 </section>
 
 <section id="overviewSec">
@@ -125,13 +126,13 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>City</th><th>Roster</th><th>Submitted 1+ lead</th><th>Total leads</th><th>Avg leads/AP/month</th>
-        <th>Converted</th><th>Pooled conv %</th><th>Clears 100/mo volume</th><th>Clears 2%+ conv</th><th>Bonus-eligible (both)</th>
+        <th>City</th><th>Roster</th><th>Sent 1+ lead</th><th>Total leads</th><th>Avg leads/partner/month</th>
+        <th>Turned into loan</th><th>Conversion %</th><th>Meets 100/mo rule</th><th>Meets 2%+ rule</th><th>Gets the bonus</th>
       </tr></thead>
       <tbody id="cityTableBody"></tbody>
     </table>
   </div>
-  <p class="caption">"Bonus-eligible" = clears both gates over the exact same selected window. Reflects the months selected above; city column ignores the city tab filter (always shows all four).</p>
+  <p class="caption">"Gets the bonus" means both rules are true at the same time, for the months picked above. This city table always shows all four cities, even if a specific city tab is selected above.</p>
 </section>
 
 <section id="partnersSec">
@@ -140,19 +141,84 @@ __MONTH_CHECKBOXES__
     <table>
       <thead><tr>
         <th>Partner</th><th>City</th><th>New leads</th><th>Existing leads</th><th>Total leads</th>
-        <th>Avg leads/month</th><th>Converted</th><th>Conversion %</th><th>Volume floor</th><th>Bonus</th>
+        <th>Avg leads/month</th><th>Turned into loan</th><th>Conversion %</th><th>100/mo rule</th><th>Bonus</th>
       </tr></thead>
       <tbody id="partnerTableBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the months and city tab selected above. Sorted by avg leads/month, descending. "Volume floor" is met at 100+ avg leads/month; "Bonus" (green row) means both the volume floor and 2%+ conversion are met simultaneously over the selected window — matching the AP Rubric report's Lead Bonus exactly.</p>
+  <p class="caption">Shows the months and city picked above. Sorted from most to fewest avg leads/month. "100/mo rule" is a yes if the partner averaged 100+ leads a month. A green row and "+10" in the Bonus column means the partner met both rules at the same time — the same partners who get the Lead Bonus on the AP Rubric report.</p>
+</section>
+
+<section id="whySec">
+  <span class="marker">04 · Why 100 leads and 2%?</span>
+  <p>To get the bonus, a partner needs <strong>both</strong> of these, at the same time:</p>
+  <p>1. They send us <strong>100 leads or more</strong>, on average, every month.<br>
+  2. At least <strong>2 out of every 100</strong> of those leads turn into a loan.</p>
+
+  <p><strong>Why 100 leads a month?</strong><br>
+  Because that is a real, hard number — not one we picked out of thin air. Only partners in Bengaluru ever send this many leads. No partner in Chennai, Hyderabad, or Pune has hit this mark, not even once, not even in their best month. So 100 is the true bar that only the busiest partners can clear.</p>
+
+  <p><strong>Why 2% conversion?</strong><br>
+  We looked at how many leads turn into an actual loan, city by city, over four different time windows. The tables below show the count of partners in each conversion band.</p>
+  <p>In Chennai, Hyderabad, and Pune, almost every partner already sits above 2%. Moving the bar up or down barely changes anything there — most partners pass either way, so 2% is not really "testing" them.</p>
+  <p>Bengaluru is different. Its partners are spread out across every band — some near 0%, some well above 2%. That means 2% is the point where Bengaluru partners actually split into two clear groups: partners who send <em>good</em> leads, and partners who just send <em>a lot</em> of leads.</p>
+  <p><strong>In short:</strong> 100 leads/month picks out the partners who send enough leads. 2% conversion then picks out, among them, the ones sending leads that actually turn into loans — instead of just leads for the sake of leads. Together, the bonus only goes to partners doing both well.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jan–Mar</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">3</td></tr>
+        <tr><td>Bengaluru</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">12</td><td class="num">2</td><td class="num">3</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">24</td><td class="num">1</td><td class="num">13</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Apr–Jun</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">6</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">28</td><td class="num">4</td><td class="num">4</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">0</td><td class="num">1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jul–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">2</td><td class="num">2</td><td class="num">11</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">11</td><td class="num">3</td><td class="num">1</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">26</td><td class="num">6</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jan–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">0</td><td class="num">7</td><td class="num">3</td><td class="num">9</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">31</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">Each cell is a count of partners. "0 leads" means the partner sent no leads at all in that time window, so there is no conversion number to show for them. These four tables are fixed reference windows (Jan–Mar, Apr–Jun, Jul–till date, Jan–till date) and do not change with the month filter above — they are here to explain the rule, not to be filtered.</p>
 </section>
 
 </div>
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Quali-prod <code>lead_submissions</code>/<code>lead</code>), same query and dedup logic as the AP Rubric report's Lead Bonus. Roster: Chennai/Bengaluru/Hyderabad/Pune Appraisal Partners, matching the AP Rubric report's scope.
+    Data comes live from Metabase, using the same counting rules as the Lead Bonus on the AP Rubric report. Covers Appraisal Partners in Chennai, Bengaluru, Hyderabad, and Pune — the same partners as the AP Rubric report.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
