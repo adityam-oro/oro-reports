@@ -188,17 +188,61 @@ a { color: var(--gold); }
 </section>
 
 <section id="leadCitySec">
-  <span class="marker">Lead generation &amp; conversion by city</span>
+  <span class="marker">Lead-to-loan conversion, by city</span>
+  <p>How many partners in each city fall into each conversion band, over four time windows. Each cell is a count of partners. "0 leads" means the partner sent no leads at all in that window.</p>
+
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Jan–Mar</p>
   <div class="tbox">
     <table>
-      <thead><tr>
-        <th>City</th><th>Roster</th><th>Sent 1+ lead</th><th>Total leads</th><th>Avg leads/AP/month</th>
-        <th>Turned into loan</th><th>Conversion %</th><th>Meets 100/mo rule</th><th>Meets 2%+ rule</th><th>Gets the bonus</th>
-      </tr></thead>
-      <tbody id="leadCityTableBody"></tbody>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">3</td></tr>
+        <tr><td>Bengaluru</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">12</td><td class="num">2</td><td class="num">3</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">24</td><td class="num">1</td><td class="num">13</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
+      </tbody>
     </table>
   </div>
-  <p class="caption">Reflects the months picked above (always shows all four cities).</p>
+
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Apr–Jun</p>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">6</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">28</td><td class="num">4</td><td class="num">4</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">0</td><td class="num">1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">July–till date</p>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">2</td><td class="num">2</td><td class="num">11</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">11</td><td class="num">3</td><td class="num">1</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">26</td><td class="num">6</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Jan–till date</p>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">0</td><td class="num">7</td><td class="num">3</td><td class="num">9</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">31</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">These four tables are fixed reference windows and do not change with the month filter above — they're here to back up the "why 100/2%" rule, not to be filtered live.</p>
 </section>
 
 </div>
@@ -488,62 +532,10 @@ function renderCityTable(months, cityFilter){
   `;
 }
 
-// Lead generation & conversion by city (section 01d) — always all four cities, independent of the
-// active city tab, so a partner or manager can see the full picture regardless of which city they're
-// currently filtered to elsewhere on the page. Every roster member appears (even with zero leads), same
-// backfill principle as aggregateAgents.
-function renderLeadCityTable(months){
-  const totals = new Map();
-  IDENTITY.forEach(([id,,city]) => totals.set(id, {city, leadGenNew:0, leadGenExisting:0, leadsConverted:0}));
-  RAW.forEach(r => {
-    if (!months.includes(r.month)) return;
-    const cur = totals.get(r.agent);
-    if (!cur) return;
-    cur.leadGenNew += r.leadGenNew; cur.leadGenExisting += r.leadGenExisting; cur.leadsConverted += r.leadsConverted;
-  });
-  const numMonths = months.length;
-  const perAgent = [...totals.values()].map(a => {
-    const totalLeads = a.leadGenNew + a.leadGenExisting;
-    const lb = leadBonusFor(totalLeads, a.leadsConverted, numMonths);
-    return {city: a.city, totalLeads, converted: a.leadsConverted, ...lb};
-  });
-  const byCity = new Map();
-  perAgent.forEach(a => {
-    const cur = byCity.get(a.city) || {city:a.city, roster:0, sending:0, totalLeads:0, converted:0, clearsVolume:0, clearsConv:0, bonus:0};
-    cur.roster++;
-    if (a.totalLeads > 0) cur.sending++;
-    cur.totalLeads += a.totalLeads; cur.converted += a.converted;
-    if (a.avgMonthlyLeads >= LEAD_VOLUME_FLOOR) cur.clearsVolume++;
-    if (a.conversionPct >= LEAD_CONVERSION_FLOOR) cur.clearsConv++;
-    if (a.clears) cur.bonus++;
-    byCity.set(a.city, cur);
-  });
-  const rows = [...byCity.values()].sort((a,b) => a.city.localeCompare(b.city));
-  document.getElementById('leadCityTableBody').innerHTML = rows.map(c => {
-    const avgPerAPMonth = c.roster && numMonths ? (c.totalLeads/c.roster/numMonths) : 0;
-    const convPct = c.totalLeads ? (c.converted/c.totalLeads*100) : 0;
-    return `
-    <tr>
-      <td>${c.city}</td>
-      <td class="num">${c.roster}</td>
-      <td class="num">${c.sending}</td>
-      <td class="num">${c.totalLeads}</td>
-      <td class="num">${avgPerAPMonth.toFixed(1)}</td>
-      <td class="num">${c.converted}</td>
-      <td class="num">${convPct.toFixed(1)}%</td>
-      <td class="num">${c.clearsVolume}</td>
-      <td class="num">${c.clearsConv}</td>
-      <td class="num">${c.bonus}</td>
-    </tr>
-  `;
-  }).join('');
-}
-
 function render(){
   renderCityTabs();
   const months = selectedMonths();
   renderCityTable(months, activeCity);
-  renderLeadCityTable(months);
   let rows = SCORED.filter(r => months.includes(r.month));
   if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
 
