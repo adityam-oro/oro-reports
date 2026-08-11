@@ -99,7 +99,7 @@ tr.held-out:hover td { background: var(--calm-tint); }
 .figwrap { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 1rem; overflow-x: auto; margin: .5rem 0 1rem; }
 .plot { position: relative; width: 100%; aspect-ratio: 1.8/1; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .plot .bar-line { position: absolute; background: var(--line-strong); }
-.plot .quad-label { position: absolute; font-family: var(--fm); font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.plot .quad-label { position: absolute; font-family: var(--fm); font-size: .66rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); line-height: 1.4; max-width: 45%; }
 .plot .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%,50%); opacity: .85; cursor: pointer; }
 .plot .dot.r { background: var(--warn); } .plot .dot.w { background: var(--gold); } .plot .dot.n { background: var(--calm); } .plot .dot.g { background: var(--good); }
 .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin: .75rem 0 0; font-size: .78rem; color: var(--ink-2); }
@@ -532,12 +532,17 @@ function render(){
   const hbar = document.createElement('div');
   hbar.className='bar-line'; hbar.style.cssText='top:50%;left:0;right:0;height:1px;';
   plot.appendChild(vbar); plot.appendChild(hbar);
-  const lbl=(t,x,y)=>{const d=document.createElement('div');d.className='quad-label';d.textContent=t;d.style.left=x;d.style.top=y;plot.appendChild(d);};
+  const lbl=(t,side,vAlign)=>{
+    const d=document.createElement('div');d.className='quad-label';d.textContent=t;
+    d.style[side]='10px'; d.style[vAlign]='8px';
+    if (side==='right') d.style.textAlign='right';
+    plot.appendChild(d);
+  };
   // x = quality (left=low, right=high), y = effort (top=high, bottom=low)
-  lbl('At risk','10px','calc(100% - 20px)');
-  lbl('Coaching','10px','8px');
-  lbl('Push volume','calc(100% - 96px)','calc(100% - 20px)');
-  lbl('Star','calc(100% - 44px)','8px');
+  lbl('At risk','left','bottom');
+  lbl('Coaching','left','top');
+  lbl('Push volume','right','bottom');
+  lbl('Star','right','top');
 
   // Quadrants are always an exact 50/50 grid, regardless of where the real quality bar (80%) sits —
   // a dot's BOX is driven entirely by its assigned zone (which already accounts for the visit-raised
