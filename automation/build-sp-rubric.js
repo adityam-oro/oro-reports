@@ -177,17 +177,27 @@ async function main() {
   const visitRows = await runQuery(QUALI_DB_ID, visitQuery);
   console.log(`  ${visitRows.length} visit rows`);
 
-  console.log('Fetching self-sourced lead_submissions (day-level, for the daily effort cap)...');
+  // 2026-08-11: also tracks whether each distinct submitted lead ever converted to a loan
+  // (lead.conversion_id set) — separate from Cx Met/Raised, which measure visit outcomes, not lead
+  // quality. A high-effort SP whose leads rarely convert gets flagged in Coaching (see LEAD_CONV_FLOOR
+  // below) even if their per-visit quality numbers look fine, since the leads driving their effort
+  // score turned out to be mostly low-value.
+  console.log('Fetching self-sourced lead_submissions (day-level, for the daily effort cap + lead->loan conversion)...');
   const leadQuery = `
     WITH per_lead AS (
-      SELECT submitted_by, lead_id, min(submitted_at)::date AS day, bool_or(acceptance_status = 'YES') AS approved
-      FROM lead_submissions
-      WHERE submitted_by IN (${agentInList}) AND submitted_at >= '2026-01-01'
-      GROUP BY submitted_by, lead_id
+      SELECT ls.submitted_by, ls.lead_id, min(ls.submitted_at)::date AS day,
+        bool_or(ls.acceptance_status = 'YES') AS approved,
+        bool_or(l.conversion_id IS NOT NULL) AS converted
+      FROM lead_submissions ls
+      LEFT JOIN lead l ON l.id = ls.lead_id
+      WHERE ls.submitted_by IN (${agentInList}) AND ls.submitted_at >= '2026-01-01'
+      GROUP BY ls.submitted_by, ls.lead_id
     )
     SELECT submitted_by, day,
       count(*) FILTER (WHERE approved) AS new_leads,
-      count(*) FILTER (WHERE NOT approved) AS existing_leads
+      count(*) FILTER (WHERE NOT approved) AS existing_leads,
+      count(*) AS leads_submitted,
+      count(*) FILTER (WHERE converted) AS leads_converted
     FROM per_lead
     GROUP BY submitted_by, day
   `;
@@ -209,10 +219,10 @@ async function main() {
     dayStats.set(key, cur);
   });
 
-  // agent|day -> { newLeads, existingLeads } (distinct leads, deduped by lead_id above).
+  // agent|day -> { newLeads, existingLeads, leadsSubmitted, leadsConverted } (distinct leads, deduped by lead_id above).
   const leadsByDay = new Map();
-  leadRows.forEach(([agent, day, newLeads, existingLeads]) => {
-    leadsByDay.set(`${agent}|${day}`, { newLeads: Number(newLeads), existingLeads: Number(existingLeads) });
+  leadRows.forEach(([agent, day, newLeads, existingLeads, leadsSubmitted, leadsConverted]) => {
+    leadsByDay.set(`${agent}|${day}`, { newLeads: Number(newLeads), existingLeads: Number(existingLeads), leadsSubmitted: Number(leadsSubmitted), leadsConverted: Number(leadsConverted) });
   });
 
   // Union of all agent|day keys that have either visit or lead activity.
@@ -227,22 +237,24 @@ async function main() {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const stats = dayStats.get(key) || { cxMet: 0, raised: 0, loans: 0 };
-    const { newLeads, existingLeads } = leadsByDay.get(key) || { newLeads: 0, existingLeads: 0 };
+    const { newLeads, existingLeads, leadsSubmitted, leadsConverted } = leadsByDay.get(key) || { newLeads: 0, existingLeads: 0, leadsSubmitted: 0, leadsConverted: 0 };
     // Existing (never-accepted, i.e. resubmitted) leads count at half weight toward the effort formula —
     // same accept/reject-weighted logic as the AP report's Lead Generation, so repeatedly resubmitting an
     // already-known lead can't inflate a day's effort the way a genuinely new lead does.
     const weightedLeads = newLeads + existingLeads * 0.5;
-    // Daily target lowered 6 -> 5 units/day 2026-08-01, per Aditya's decision.
-    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 5);
+    // Daily target restored to 6 units/day 2026-08-11 (reverted from the 5/day trial), per Aditya's decision.
+    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 6);
 
     const mkey = `${agent}|${month}`;
-    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0 };
+    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0, leadsSubmitted: 0, leadsConverted: 0 };
     cur.newLeads += newLeads;
     cur.existingLeads += existingLeads;
     cur.cxMet += stats.cxMet;
     cur.raised += stats.raised;
     cur.loans += stats.loans;
     cur.capped += cappedUnit;
+    cur.leadsSubmitted += leadsSubmitted;
+    cur.leadsConverted += leadsConverted;
     monthAgg.set(mkey, cur);
   });
 
@@ -252,7 +264,7 @@ async function main() {
       const mkey = `${agent}|${month}`;
       const a = monthAgg.get(mkey);
       if (!a) return; // no activity at all this month — omit, same convention as the original data
-      RAW.push([agent, month, a.newLeads, a.existingLeads, a.cxMet, a.raised, a.loans, Math.round(a.capped * 10) / 10]);
+      RAW.push([agent, month, a.newLeads, a.existingLeads, a.cxMet, a.raised, a.loans, Math.round(a.capped * 10) / 10, a.leadsSubmitted, a.leadsConverted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
