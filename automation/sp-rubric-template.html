@@ -78,6 +78,20 @@ tr:hover td { background: var(--surface-2); }
 .chip.n { background: var(--calm-tint); color: var(--calm); }
 .caption { font-size: .78rem; color: var(--ink-3); max-width: 66rem; margin: .25rem 0 0; }
 
+/* freeze header row + first column */
+thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+tr > *:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+thead th:first-child { z-index: 3; }
+tr:hover > *:first-child { background: var(--surface-2); }
+tr.new-joiner > *:first-child { background: var(--gold-tint); }
+tr.new-joiner:hover > *:first-child { background: var(--gold-tint); }
+tr.new-joiner td { background: var(--gold-tint); }
+tr.new-joiner:hover td { background: var(--gold-tint); }
+tr.held-out > *:first-child { background: var(--calm-tint); }
+tr.held-out:hover > *:first-child { background: var(--calm-tint); }
+tr.held-out td { background: var(--calm-tint); }
+tr.held-out:hover td { background: var(--calm-tint); }
+
 .callout { border: 1px solid var(--line-strong); border-left: 3px solid var(--warn); border-radius: 8px; background: var(--warn-tint); padding: .9rem 1.1rem; margin: .5rem 0 1.25rem; }
 .callout p { margin: 0; max-width: none; color: var(--ink); }
 .callout p + p { margin-top: .5rem; }
@@ -144,34 +158,12 @@ __MONTH_CHECKBOXES__
       </tbody>
     </table>
   </div>
-  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. There is no floor on visit-raised % — a low visit-raised rate is reflected through the quality score itself, not a separate override.</p>
+  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement, except SPs who are both At risk and still within their first 3 months of joining, who are excluded from every stat and chart above but still shown (highlighted blue) in the leaderboard. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date. There is no floor on visit-raised % — a low visit-raised rate is reflected through the quality score itself, not a separate override.</p>
 </section>
 
 <section id="orgSec">
   <span class="marker">02 · Org view — month over month</span>
   <div class="stats" id="orgStats"></div>
-  <div class="tbox">
-    <table>
-      <thead><tr><th>Month</th><th>SPs active</th><th>Leads submitted</th><th>Cx Met</th><th>Visits raised</th><th>Visit %</th></tr></thead>
-      <tbody id="orgTableBody"></tbody>
-    </table>
-  </div>
-  <p class="caption">Reflects the city and months selected above.</p>
-</section>
-
-<section id="citySec">
-  <span class="marker">02b · City comparison — avg Cx Met, visit raised %, loan completion %</span>
-  <div class="tbox">
-    <table>
-      <thead><tr><th>City</th><th>SP-months</th><th>Avg Cx Met</th><th>Visit raised %</th><th>Loan completion %</th></tr></thead>
-      <tbody id="cityTableBody"></tbody>
-    </table>
-  </div>
-  <p class="caption">Reflects the months selected above (not filtered by the city tab, so all cities are always shown side by side). Visit raised % and loan completion % are pooled rates (sum raised ÷ sum Cx Met; sum loans ÷ sum raised), not a simple average of per-SP percentages.</p>
-</section>
-
-<section id="quadSec">
-  <span class="marker">03 · Effort × quality — the four quadrants</span>
   <div class="figwrap">
     <div class="plot" id="plot"></div>
   </div>
@@ -182,10 +174,28 @@ __MONTH_CHECKBOXES__
     <span><i class="dotkey n"></i>Push volume — quality ok, effort short</span>
     <span><i class="dotkey g"></i>Star — clears both</span>
   </div>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Month</th><th>SPs active</th><th>Leads submitted</th><th>Cx Met</th><th>Visits raised</th><th>Visit %</th></tr></thead>
+      <tbody id="orgTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above. The plot recalculates for whichever city tab is active.</p>
+</section>
+
+<section id="citySec">
+  <span class="marker">02b · City-wise overview</span>
+  <div class="tbox">
+    <table>
+      <thead><tr><th>City</th><th>SPs</th><th>Avg effort %</th><th>Avg quality %</th><th>At risk</th><th>Coaching</th><th>Push volume</th><th>Star</th></tr></thead>
+      <tbody id="cityTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the city and months selected above (selecting a specific city tab narrows this to just that city). One row per SP per city — totals summed across selected months, then rescored, same as the leaderboard.</p>
 </section>
 
 <section id="lbSec">
-  <span class="marker">04 · Leaderboard</span>
+  <span class="marker">03 · Leaderboard</span>
   <div class="tbox">
     <table>
       <thead><tr>
@@ -194,7 +204,7 @@ __MONTH_CHECKBOXES__
       <tbody id="lbBody"></tbody>
     </table>
   </div>
-  <p class="caption">Reflects the city and months selected above. Sorted by quality %, descending. One row per SP — totals summed across selected months, then rescored. Bengaluru/Hyderabad/Pune only, no minimum tenure requirement.</p>
+  <p class="caption">Reflects the city and months selected above. Sorted by quality %, descending. One row per SP — totals summed across selected months, then rescored. Bengaluru/Hyderabad/Pune only, no minimum tenure requirement. Rows highlighted gold are SPs within their first 3 months of joining; rows highlighted blue are At risk AND within their first 3 months — held out of every stat and chart above, but still shown here so nobody drops out of sight entirely.</p>
 </section>
 
 </div>
@@ -203,7 +213,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: refreshed automatically every morning, live from Metabase — Cx Met, Visits Raised, and Loan Completion come from <code>Quali-prod.sales_visit</code> (status codes) joined to <code>lead.conversion_id</code> and the production <code>loans</code> table (for loan completion), and self-sourced leads come from <code>Quali-prod.lead_submissions</code> where <code>submitted_by</code> matches the SP, deduped by <code>lead_id</code> (a lead resubmitted multiple times counts once, attributed to its first submission). Cx Met and Visits Raised count every visit for the SP regardless of lead source; leads submitted are self-sourced only, and count at full weight if ever accepted, half weight if never accepted (a resubmission of an already-known lead) — the same accept/reject-weighted logic used on the AP report. Effort is capped per day at 5 units (<code>min(met + weighted_leads÷2, 5)</code>) before being summed into the month, so a burst of leads on one day can no longer push a whole month over 100%. Scope: active SPs, Bengaluru/Hyderabad/Pune only (no minimum tenure requirement), Jan 2026 to present (the current month is MTD). Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays. Chennai is excluded from this rubric — Chennai SPs don't receive company-provided appointments, so this effort/quality model doesn't fit their work and needs its own rule set.
+    Data source: refreshed automatically every morning, live from Metabase — Cx Met, Visits Raised, and Loan Completion come from <code>Quali-prod.sales_visit</code> (status codes) joined to <code>lead.conversion_id</code> and the production <code>loans</code> table (for loan completion), and self-sourced leads come from <code>Quali-prod.lead_submissions</code> where <code>submitted_by</code> matches the SP, deduped by <code>lead_id</code> (a lead resubmitted multiple times counts once, attributed to its first submission). Cx Met and Visits Raised count every visit for the SP regardless of lead source; leads submitted are self-sourced only, and count at full weight if ever accepted, half weight if never accepted (a resubmission of an already-known lead) — the same accept/reject-weighted logic used on the AP report. Effort is capped per day at 5 units (<code>min(met + weighted_leads÷2, 5)</code>) before being summed into the month, so a burst of leads on one day can no longer push a whole month over 100%. Scope: active SPs, Bengaluru/Hyderabad/Pune only (no minimum tenure requirement), Jan 2026 to present (the current month is MTD). Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays. Chennai is excluded from this rubric — Chennai SPs don't receive company-provided appointments, so this effort/quality model doesn't fit their work and needs its own rule set. New-joiner exception: At-risk SPs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -226,8 +236,20 @@ const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([ag
 const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
 const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
 const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
+const DOJ_MAP = new Map(IDENTITY.map(([id,,,doj])=>[id,doj||null]));
 function nameFor(id){ return NAME_BY_ID.get(id) || id; }
 function cityFor(id){ return CITY_MAP.get(id) || 'Unknown'; }
+// Tenure is measured against the END OF THE SELECTED WINDOW, not against real-world "today" — so an SP's
+// new-joiner status reflects how experienced they actually were during the period being viewed.
+function monthEndDate(monthKey){
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)); // last calendar day of that month
+}
+function tenureDays(id, refDate){
+  const doj = DOJ_MAP.get(id);
+  if (!doj) return Infinity; // no DOJ on file (long-tenured or unresolved) — never treated as a new joiner
+  return (refDate - new Date(doj)) / 86400000;
+}
 const WD = JSON.parse(document.getElementById('wd-data').textContent);
 const MONTH_LABEL = JSON.parse(document.getElementById('month-label-data').textContent);
 const CITIES = ['All','Bengaluru','Hyderabad','Pune'];
@@ -239,19 +261,7 @@ const ZONE_LABEL = {r:'At risk', w:'Coaching', n:'Push volume', g:'Star'};
 
 const SCORED = RAW.map(r => {
   const city = cityFor(r.agent);
-  const wd = (WD[r.month] && WD[r.month][city]) || 0;
-  const effortPct = wd ? (r.capped/(5*wd))*100 : 0;
-  const raiseRate = r.cx_met>0 ? r.visits_raised/r.cx_met : 0;
-  const raiseAch = r.cx_met>0 ? (raiseRate/0.40)*100 : 0;
-  const loanRate = r.visits_raised>0 ? r.loan_completed/r.visits_raised : 0;
-  const loanAch = r.visits_raised>0 ? (loanRate/0.80)*100 : null;
-  // Each achievement ratio is capped at 100% before averaging, so quality can
-  // never read above 100% (an SP converting well past target shouldn't be able
-  // to push the blended score over the ceiling on the other axis too).
-  const raiseAchCapped = Math.min(raiseAch, 100);
-  const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
-  const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
-  return {...r, city, effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct)};
+  return {...r, city};
 }).filter(r => CITIES.includes(r.city));
 
 function selectedMonths(){
@@ -265,14 +275,61 @@ function renderCityTabs(){
   el.querySelectorAll('.citytab').forEach(btn => btn.addEventListener('click', () => { activeCity = btn.dataset.city; render(); }));
 }
 
+// Aggregate SCORED rows to one row per SP across a given set of months, then rescore — sum first,
+// re-derive effort/quality from the summed totals (never re-cap or re-average a multi-month blend).
+// Every agent is returned with a `heldOut` flag (At risk + within first 3 months) rather than being
+// dropped here — callers that want the old exclude-from-stats behavior filter it out themselves; the
+// leaderboard keeps them, highlighted. cityFilter is used only to backfill new joiners who have zero
+// rows at all for this window, so they're still shown (highlighted) in the leaderboard instead of being
+// invisible everywhere.
+function aggregateAgents(rows, refDate, cityFilter){
+  const byAgent = new Map();
+  rows.forEach(r => {
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, leads:0, newLeads:0, existingLeads:0, cx_met:0, visits_raised:0, loan_completed:0, capped:0, wd:0};
+    cur.leads += r.leads; cur.newLeads += r.newLeads; cur.existingLeads += r.existingLeads; cur.cx_met += r.cx_met; cur.visits_raised += r.visits_raised; cur.loan_completed += r.loan_completed; cur.capped += r.capped; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
+    byAgent.set(r.agent, cur);
+  });
+  const results = [...byAgent.values()].map(a => {
+    const effortPct = a.wd ? (a.capped/(5*a.wd))*100 : 0;
+    const raiseRate = a.cx_met>0 ? a.visits_raised/a.cx_met : 0;
+    const raiseAch = a.cx_met>0 ? (raiseRate/0.40)*100 : 0;
+    const loanRate = a.visits_raised>0 ? a.loan_completed/a.visits_raised : 0;
+    const loanAch = a.visits_raised>0 ? (loanRate/0.80)*100 : null;
+    // Each achievement ratio is capped at 100% before averaging, so quality can
+    // never read above 100% (an SP converting well past target shouldn't be able
+    // to push the blended score over the ceiling on the other axis too).
+    const raiseAchCapped = Math.min(raiseAch, 100);
+    const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
+    const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
+    const zone = classify(effortPct,qualityPct);
+    return {...a, effortPct, qualityPct, raiseRate, loanRate, zone, heldOut: zone==='r' && tenureDays(a.agent, refDate) < 90};
+  });
+
+  // Backfill: any SP within their first 3 months (by tenure at refDate) who has ZERO rows in this
+  // window at all (RAW simply omits agent-months with no activity) would otherwise be invisible here,
+  // even though they're exactly who the held-out highlight exists for. Add them as an explicit zero
+  // row — always zone 'r' (0% effort, 0% quality) and therefore always heldOut, so they show blue in
+  // the leaderboard but never pollute the stats/plot/city-table views that filter heldOut out.
+  const present = new Set(results.map(a => a.agent));
+  const backfilled = IDENTITY
+    .filter(([id,,city]) => !present.has(id) && CITIES.includes(city) && (cityFilter === undefined || cityFilter === 'All' || city === cityFilter) && tenureDays(id, refDate) < 90)
+    .map(([id,,city]) => ({
+      agent:id, city, leads:0, newLeads:0, existingLeads:0, cx_met:0, visits_raised:0, loan_completed:0, capped:0, wd:0,
+      effortPct:0, qualityPct:0, raiseRate:0, loanRate:0, zone:'r', heldOut:true,
+    }));
+  return [...results, ...backfilled];
+}
+
 function renderOrgTable(months, cityFilter){
   const rows = months.slice().sort().map(m => {
     let list = SCORED.filter(r => r.month === m);
     if (cityFilter !== 'All') list = list.filter(r => r.city === cityFilter);
-    const sps = new Set(list.map(r=>r.agent)).size;
-    const leads = list.reduce((s,r)=>s+r.leads,0);
-    const met = list.reduce((s,r)=>s+r.cx_met,0);
-    const raised = list.reduce((s,r)=>s+r.visits_raised,0);
+    const refDate = monthEndDate(m);
+    const agg = aggregateAgents(list, refDate, cityFilter).filter(a => !a.heldOut);
+    const sps = agg.length;
+    const leads = agg.reduce((s,r)=>s+r.leads,0);
+    const met = agg.reduce((s,r)=>s+r.cx_met,0);
+    const raised = agg.reduce((s,r)=>s+r.visits_raised,0);
     return {m, sps, leads, met, raised, rate: met>0 ? (raised/met*100) : 0};
   });
   document.getElementById('orgTableBody').innerHTML = rows.map(r => `
@@ -287,69 +344,72 @@ function renderOrgTable(months, cityFilter){
   `).join('');
 }
 
-function renderCityCompareTable(months){
-  const list = SCORED.filter(r => months.includes(r.month) && r.city !== 'Unknown');
+function renderCityTable(months, cityFilter){
+  let rows = SCORED.filter(r => months.includes(r.month));
+  if (cityFilter !== 'All') rows = rows.filter(r => r.city === cityFilter);
+  const refDate = monthEndDate(months.slice().sort().at(-1));
+  const agg = aggregateAgents(rows, refDate, cityFilter).filter(a => !a.heldOut);
   const byCity = new Map();
-  list.forEach(r => {
-    const cur = byCity.get(r.city) || {city:r.city, n:0, met:0, raised:0, loans:0};
-    cur.n++; cur.met += r.cx_met; cur.raised += r.visits_raised; cur.loans += r.loan_completed;
-    byCity.set(r.city, cur);
+  agg.forEach(a => {
+    const cur = byCity.get(a.city) || {city:a.city, n:0, sumEffort:0, sumQuality:0, r:0,w:0,n2:0,g:0};
+    cur.n++; cur.sumEffort+=a.effortPct; cur.sumQuality+=a.qualityPct;
+    if (a.zone==='r') cur.r++; else if (a.zone==='w') cur.w++; else if (a.zone==='n') cur.n2++; else cur.g++;
+    byCity.set(a.city, cur);
   });
-  const rows = [...byCity.values()].sort((a,b) => (b.raised/b.met) - (a.raised/a.met));
-  document.getElementById('cityTableBody').innerHTML = rows.map(c => `
+  const cityRows = [...byCity.values()].sort((a,b) => (b.sumEffort/b.n) - (a.sumEffort/a.n));
+  const grand = cityRows.reduce((s,c)=>({n:s.n+c.n, r:s.r+c.r, w:s.w+c.w, n2:s.n2+c.n2, g:s.g+c.g}), {n:0,r:0,w:0,n2:0,g:0});
+  const grandAvgEffort = cityRows.length ? cityRows.reduce((s,c)=>s+(c.sumEffort/c.n),0)/cityRows.length : 0;
+  const grandAvgQuality = cityRows.length ? cityRows.reduce((s,c)=>s+(c.sumQuality/c.n),0)/cityRows.length : 0;
+  document.getElementById('cityTableBody').innerHTML = cityRows.map(c => `
     <tr>
       <td>${c.city}</td>
       <td class="num">${c.n}</td>
-      <td class="num">${(c.met/c.n).toFixed(1)}</td>
-      <td class="num">${c.met>0 ? (c.raised/c.met*100).toFixed(0) : 0}%</td>
-      <td class="num">${c.raised>0 ? (c.loans/c.raised*100).toFixed(0) : 0}%</td>
+      <td class="num">${(c.sumEffort/c.n).toFixed(0)}%</td>
+      <td class="num">${(c.sumQuality/c.n).toFixed(0)}%</td>
+      <td class="num">${c.r}</td>
+      <td class="num">${c.w}</td>
+      <td class="num">${c.n2}</td>
+      <td class="num">${c.g}</td>
     </tr>
-  `).join('');
+  `).join('') + `
+    <tr style="font-weight:650;">
+      <td>Total</td>
+      <td class="num">${grand.n}</td>
+      <td class="num">${grandAvgEffort.toFixed(0)}%</td>
+      <td class="num">${grandAvgQuality.toFixed(0)}%</td>
+      <td class="num">${grand.r}</td>
+      <td class="num">${grand.w}</td>
+      <td class="num">${grand.n2}</td>
+      <td class="num">${grand.g}</td>
+    </tr>
+  `;
 }
 
 function render(){
   renderCityTabs();
   const months = selectedMonths();
-  renderCityCompareTable(months);
+  renderCityTable(months, activeCity);
   let rows = SCORED.filter(r => months.includes(r.month));
   if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
 
-  // Aggregate to one row per SP across the selected months (same totals-then-rescore
-  // logic used by the leaderboard) so a single SP occupies exactly one quadrant,
-  // never multiple, when several months are selected.
-  const byAgent = new Map();
-  rows.forEach(r => {
-    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, leads:0, newLeads:0, existingLeads:0, cx_met:0, visits_raised:0, loan_completed:0, capped:0, wd:0};
-    cur.leads += r.leads; cur.newLeads += r.newLeads; cur.existingLeads += r.existingLeads; cur.cx_met += r.cx_met; cur.visits_raised += r.visits_raised; cur.loan_completed += r.loan_completed; cur.capped += r.capped; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
-    byAgent.set(r.agent, cur);
-  });
-  const agg = [...byAgent.values()].map(a => {
-    const effortPct = (a.capped/(5*a.wd))*100;
-    const raiseRate = a.cx_met>0 ? a.visits_raised/a.cx_met : 0;
-    const raiseAch = a.cx_met>0 ? (raiseRate/0.40)*100 : 0;
-    const loanRate = a.visits_raised>0 ? a.loan_completed/a.visits_raised : 0;
-    const loanAch = a.visits_raised>0 ? (loanRate/0.80)*100 : null;
-    // Each achievement ratio is capped at 100% before averaging, so quality can
-    // never read above 100% (an SP converting well past target shouldn't be able
-    // to push the blended score over the ceiling on the other axis too).
-    const raiseAchCapped = Math.min(raiseAch, 100);
-    const loanAchCapped = loanAch!==null ? Math.min(loanAch, 100) : null;
-    const qualityPct = loanAchCapped!==null ? (raiseAchCapped+loanAchCapped)/2 : raiseAchCapped;
-    return {...a, effortPct, qualityPct, raiseRate, loanRate, zone: classify(effortPct,qualityPct)};
-  });
+  const refDate = monthEndDate(months.slice().sort().at(-1));
+  const aggAll = aggregateAgents(rows, refDate, activeCity);
+  const agg = aggAll.filter(a => !a.heldOut);
+  const heldOutList = aggAll.filter(a => a.heldOut);
 
   const n = agg.length;
   const quad = {g:0,w:0,n:0,r:0};
-  let sE=0, sQ=0, totalLeads=0, totalMet=0, totalRaised=0;
-  agg.forEach(r=>{ quad[r.zone]++; sE+=r.effortPct; sQ+=r.qualityPct; totalLeads+=r.leads; totalMet+=r.cx_met; totalRaised+=r.visits_raised; });
+  let sQ=0, totalLeads=0, totalMet=0, totalRaised=0;
+  agg.forEach(r=>{ quad[r.zone]++; sQ+=r.qualityPct; totalLeads+=r.leads; totalMet+=r.cx_met; totalRaised+=r.visits_raised; });
 
+  const heldOutNote = heldOutList.length ? ` (+${heldOutList.length} new joiner${heldOutList.length===1?'':'s'} held out, shown below)` : '';
   document.getElementById('orgStats').innerHTML = `
     <div class="stat"><b>${n}</b><span>SPs (filtered)</span></div>
     <div class="stat"><b>${totalLeads.toLocaleString()}</b><span>leads submitted</span></div>
     <div class="stat"><b>${totalMet.toLocaleString()}</b><span>customers met</span></div>
     <div class="stat gold"><b>${totalRaised.toLocaleString()}</b><span>visits raised</span></div>
     <div class="stat"><b>${n?(sQ/n).toFixed(0):0}%</b><span>avg quality (visit %)</span></div>
-    <div class="stat warn"><b>${n?(quad.r/n*100).toFixed(0):0}%</b><span>at risk</span></div>
+    <div class="stat warn"><b>${n?(quad.r/n*100).toFixed(0):0}%</b><span>at risk${heldOutNote}</span></div>
   `;
   renderOrgTable(months, activeCity);
 
@@ -398,11 +458,18 @@ function render(){
     plot.appendChild(d);
   });
 
-  // Leaderboard: same one-row-per-SP aggregation computed above.
-  const sorted = [...agg].sort((a,b)=>b.qualityPct-a.qualityPct);
-  document.getElementById('lbBody').innerHTML = sorted.map(r=>`
-    <tr>
-      <td>${nameFor(r.agent)}</td>
+  // Leaderboard shows everyone, including held-out SPs (at risk + <3 months tenure) — they're just
+  // highlighted blue instead of the usual gold "new joiner" tint, and excluded from every stat above.
+  const sorted = [...aggAll].sort((a,b)=>b.qualityPct-a.qualityPct);
+  document.getElementById('lbBody').innerHTML = sorted.map(r=>{
+    const newJoiner = tenureDays(r.agent, refDate) < 90;
+    const rowClass = r.heldOut ? 'held-out' : (newJoiner ? 'new-joiner' : '');
+    const chip = r.heldOut
+      ? ' <span class="chip n" title="At risk and within their first 3 months — held out of stats above">NEW · HELD OUT</span>'
+      : (newJoiner ? ' <span class="chip w" title="Joined within the last 3 months">NEW</span>' : '');
+    return `
+    <tr${rowClass ? ` class="${rowClass}"` : ''}>
+      <td>${nameFor(r.agent)}${chip}</td>
       <td>${r.city}</td>
       <td class="num">${r.newLeads}</td>
       <td class="num">${r.existingLeads}</td>
@@ -415,7 +482,8 @@ function render(){
       <td class="num">${r.qualityPct.toFixed(0)}%</td>
       <td><span class="chip ${r.zone}">${ZONE_LABEL[r.zone]}</span></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 document.querySelectorAll('#fMonth input[type=checkbox]').forEach(c=>c.addEventListener('change', render));
 render();
