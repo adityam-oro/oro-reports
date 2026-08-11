@@ -142,7 +142,26 @@ __MONTH_CHECKBOXES__
 <div class="wrap">
 
 <section id="rulesSec">
-  <span class="marker">01 · Rules of scoring</span>
+  <span class="marker">01 · Rules of scoring — plain language</span>
+  <p><strong>You earn points every day for two things:</strong> meeting customers, and turning in leads.</p>
+  <p>1. Every customer you meet (Cx Met) = <strong>1 point</strong>.<br>
+  2. Every new lead you submit = <strong>half a point</strong> (2 leads = 1 point). A lead you resubmit that never gets accepted = <strong>a quarter point</strong> (4 leads = 1 point).<br>
+  3. No single day can earn more than <strong>6 points</strong>, no matter how many leads you send. One big day of leads can't cover for a whole month of low effort.</p>
+  <p><strong>Effort Score</strong> = the points you earned this month ÷ the most you could have earned (6 points × your working days). You need <strong>50% or higher</strong> to clear the effort bar.</p>
+  <p><strong>Quality Score</strong> = how well those customer visits turn into real business, in two steps:</p>
+  <p>1. <strong>Visit Raised %</strong> — of the customers you met, how many actually moved forward? Target: <strong>40%</strong>.<br>
+  2. <strong>Loan Completion %</strong> — of the ones that moved forward, how many became an actual loan? Target: <strong>80%</strong>.</p>
+  <p>We average how close you got to each target. You need <strong>80% or higher</strong> to clear the quality bar.</p>
+  <p><strong>Two extra checks, so the score can't be gamed:</strong></p>
+  <p>• <strong>Visit-Raised Floor</strong> — if under 35% of the customers you meet ever move forward, you're marked <span class="chip r">At risk</span> no matter how good your other numbers look. A number this low means the visits aren't real engagement.<br>
+  • <strong>Lead Quality Check</strong> — if your leads almost never turn into a loan (under 2%), you can't be a <span class="chip g">Star</span> even with great effort and quality — you'll be marked <span class="chip w">Coaching</span> instead. See "Why 2%?" below.</p>
+
+  <p><strong>Which box am I in?</strong></p>
+  <p>• <span class="chip g">Star</span> — Good effort (50%+) <strong>and</strong> good quality (80%+) <strong>and</strong> your leads convert (2%+). You're doing everything right.<br>
+  • <span class="chip w">Coaching</span> — Good effort, but quality is short, or your leads aren't converting. You're putting in the work — the follow-through needs work.<br>
+  • <span class="chip n">Push volume</span> — Good quality, but effort is short. You know how to convert — you just need to do more visits and leads.<br>
+  • <span class="chip r">At risk</span> — Both effort and quality are short. Or: your visit-raised rate is under 35% — that alone puts you here.</p>
+
   <div class="tbox">
     <table>
       <thead><tr><th>Metric</th><th>Definition</th><th>Target</th></tr></thead>
@@ -160,7 +179,50 @@ __MONTH_CHECKBOXES__
       </tbody>
     </table>
   </div>
-  <p class="caption">Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement, except SPs who are both At risk and still within their first 3 months of joining, who are excluded from every stat and chart above but still shown (highlighted blue) in the leaderboard. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date.</p>
+  <p class="caption">The table above is the exact, technical version of the rules for anyone who wants it. Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement, except SPs who are both At risk and still within their first 3 months of joining, who are excluded from every stat and chart above but still shown (highlighted blue) in the leaderboard. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date.</p>
+</section>
+
+<section id="leadConvSec">
+  <span class="marker">01b · Why 2% lead conversion?</span>
+  <p>To be a <span class="chip g">Star</span>, an SP needs effort 50%+, quality 80%+, <strong>and</strong> at least 2% of their leads to turn into a real loan. Here's why 2% specifically.</p>
+  <p>We looked at how many leads turn into an actual loan, city by city, over three time windows. The tables below show how many SPs fall into each conversion band.</p>
+  <p>In Hyderabad and Pune, almost every SP already sits above 2% — most months, nearly the whole city is in the ">2%" column. Moving the bar up or down barely changes anything there.</p>
+  <p>Bengaluru is the opposite, and it's gotten worse over time: in Jan–Mar a few Bengaluru SPs were still above 2%, but by Jul–Aug <strong>every single one</strong> had dropped under 0.5%, despite submitting far more leads than the other two cities combined. 2% is the point where this actually shows up — it's not testing Hyderabad or Pune at all, but it clearly separates Bengaluru's "sends a lot of leads" from "sends good leads."</p>
+  <p><strong>In short:</strong> a high effort score built on leads that don't convert isn't real effort. The 2% check makes sure Star only goes to SPs whose leads are actually worth something, not just plentiful.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jan–Mar</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Bengaluru</td><td class="num">2</td><td class="num">7</td><td class="num">2</td><td class="num">0</td><td class="num">2</td><td class="num">2</td></tr>
+        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">24</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Apr–Jun</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Bengaluru</td><td class="num">9</td><td class="num">4</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">34</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jul–till date</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Bengaluru</td><td class="num">13</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">2</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num">24</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">1</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">One row per SP per city, counted by their lead→loan conversion rate over that window. "0 leads" means the SP submitted no self-sourced leads in that window.</p>
 </section>
 
 <section id="orgSec">
@@ -169,7 +231,7 @@ __MONTH_CHECKBOXES__
   <div class="figwrap">
     <div class="plot" id="plot"></div>
   </div>
-  <p class="caption">Each dot is one SP — totals summed across the selected months, then rescored, same as the leaderboard below (so an SP appears in exactly one quadrant, never split across quadrants when multiple months are selected). Hover a dot for the SP's name. Vertical = effort (daily-capped Cx Met + leads÷2, vs 6/day) — split at 50%. Horizontal = quality (visit % vs 40% target, blended with loan rate vs 80%) — split at 80%. A visit-raised floor overrides the quadrant: any SP with visit-raised % below 35% is classified At Risk regardless of effort or quality. A lead-quality override also applies: any SP with effort ≥50% whose self-sourced leads convert to loans at under 2% is classified Coaching even if their visit-based quality clears 80%, since the leads behind their effort score aren't good ones.</p>
+  <p class="caption">Each dot is one SP — totals summed across the selected months, then rescored, same as the leaderboard below (so an SP appears in exactly one quadrant, never split across quadrants when multiple months are selected). Hover a dot for the SP's name. The four boxes are always an even 50/50 grid — a dot's box is its actual assigned zone (which already accounts for the effort bar, the 80% quality bar, the 35% visit-raised floor, and the lead-conversion override below), not a direct plot of raw effort/quality against those thresholds. Position within a box is ranked by that SP's real effort (vertical) and quality (horizontal) among others in the same zone, so relative standing inside a quadrant still means something. A visit-raised floor overrides the quadrant: any SP with visit-raised % below 35% is classified At Risk regardless of effort or quality. A lead-quality override also applies: any SP with effort ≥50% whose self-sourced leads convert to loans at under 2% is classified Coaching even if their visit-based quality clears 80%, since the leads behind their effort score aren't good ones.</p>
   <div class="legend">
     <span><i class="dotkey r"></i>At risk — below both, or visit-raised % under 35% floor</span>
     <span><i class="dotkey w"></i>Coaching — effort ok, quality short (or leads aren't converting)</span>
@@ -425,14 +487,14 @@ function render(){
     <div class="stat"><b>${totalMet.toLocaleString()}</b><span>customers met</span></div>
     <div class="stat gold"><b>${totalRaised.toLocaleString()}</b><span>visits raised</span></div>
     <div class="stat"><b>${n?(sQ/n).toFixed(0):0}%</b><span>avg quality (visit %)</span></div>
-    <div class="stat warn"><b>${n?(quad.r/n*100).toFixed(0):0}%</b><span>at risk${heldOutNote}</span></div>
+    <div class="stat warn"><b>${quad.r}</b><span>at risk${heldOutNote}</span></div>
   `;
   renderOrgTable(months, activeCity);
 
   const plot = document.getElementById('plot');
   plot.innerHTML = '';
   const vbar = document.createElement('div');
-  vbar.className='bar-line'; vbar.style.cssText='left:'+QUALITY_BAR+'%;top:0;bottom:0;width:1px;';
+  vbar.className='bar-line'; vbar.style.cssText='left:50%;top:0;bottom:0;width:1px;';
   const hbar = document.createElement('div');
   hbar.className='bar-line'; hbar.style.cssText='top:50%;left:0;right:0;height:1px;';
   plot.appendChild(vbar); plot.appendChild(hbar);
@@ -443,24 +505,36 @@ function render(){
   lbl('Push volume','calc(100% - 96px)','calc(100% - 20px)');
   lbl('Star','calc(100% - 44px)','8px');
 
-  // Spread dots across each half of the plot by within-half rank, rather than raw
-  // value (which clusters at 0% / far-over-100% since both metrics are skewed).
-  // The split line stays exact; only placement *within* a half is rank-based.
-  function spreadPositions(values, split){
-    const lower = values.map((v,i)=>({v,i})).filter(o=>o.v<split).sort((a,b)=>a.v-b.v);
-    const upper = values.map((v,i)=>({v,i})).filter(o=>o.v>=split).sort((a,b)=>a.v-b.v);
-    const pos = new Array(values.length);
-    lower.forEach((o,rank)=>{ pos[o.i] = lower.length>1 ? (rank/(lower.length-1))*(split-4) + 2 : split/2; });
-    upper.forEach((o,rank)=>{ pos[o.i] = upper.length>1 ? (rank/(upper.length-1))*(98-split-4) + split+2 : (split+100)/2; });
-    return pos;
+  // Quadrants are always an exact 50/50 grid, regardless of where the real quality bar (80%) sits —
+  // a dot's BOX is driven entirely by its assigned zone (which already accounts for the visit-raised
+  // floor and the lead-conversion override), never by comparing raw effort/quality against 50%
+  // directly. That matters because those overrides can force a zone that disagrees with the raw
+  // numbers (e.g. 86% effort + 82% quality but still At-risk on the visit-raised floor) — plotting by
+  // raw value would put that dot in the wrong box entirely. Position *within* a box is rank-based on
+  // the real effort/quality values, so relative standing inside a quadrant still means something.
+  // bottom-left=r (At risk), top-left=w (Coaching), bottom-right=n (Push volume), top-right=g (Star)
+  const QUAD_ORIGIN = { r: [2,2], w: [2,52], n: [52,2], g: [52,52] };
+  const byZone = {r:[],w:[],n:[],g:[]};
+  agg.forEach((r,i) => byZone[r.zone].push(i));
+  function rankFractions(indices, values){
+    const sorted = [...indices].sort((a,b) => values[a]-values[b]);
+    const frac = new Map();
+    sorted.forEach((idx,rank) => frac.set(idx, sorted.length>1 ? rank/(sorted.length-1) : 0.5));
+    return frac;
   }
-  const xPositions = spreadPositions(agg.map(r=>r.qualityPct), QUALITY_BAR);
-  const yPositions = spreadPositions(agg.map(r=>r.effortPct), 50);
+  const qualityVals = agg.map(r=>r.qualityPct), effortVals = agg.map(r=>r.effortPct);
+  const xFrac = new Map(), yFrac = new Map();
+  Object.values(byZone).forEach(indices => {
+    const qf = rankFractions(indices, qualityVals);
+    const ef = rankFractions(indices, effortVals);
+    indices.forEach(i => { xFrac.set(i, qf.get(i)); yFrac.set(i, ef.get(i)); });
+  });
 
   const tip = document.getElementById('tip');
   agg.forEach((r,i)=>{
-    const x = xPositions[i];
-    const y = yPositions[i];
+    const [ox, oy] = QUAD_ORIGIN[r.zone];
+    const x = ox + xFrac.get(i)*46;
+    const y = oy + yFrac.get(i)*46;
     const d = document.createElement('div');
     d.className = 'dot '+r.zone;
     d.style.left = x+'%'; d.style.bottom = y+'%';
