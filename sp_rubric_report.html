@@ -124,8 +124,8 @@ a { color: var(--gold); }
     </div>
     <h1>SP rubric — full report</h1>
     <div class="citytabs" id="fPage" style="margin-top:.6rem;">
-      <button class="citytab active" data-page="scoring">Scoring</button>
-      <button class="citytab" data-page="rules">Rules</button>
+      <button class="citytab" data-page="scoring">Scoring</button>
+      <button class="citytab active" data-page="rules">Rules</button>
     </div>
     <div class="filters">
       <div>
@@ -152,7 +152,7 @@ a { color: var(--gold); }
 
 <div class="wrap">
 
-<div id="tabpage-rules" style="display:none;">
+<div id="tabpage-rules">
 
 <section id="rulesSec">
   <span class="marker">Rules of scoring</span>
@@ -176,7 +176,7 @@ a { color: var(--gold); }
         <tr><td>Visit raised</td><td>40%+ of the customers you meet (Cx Met) move forward.</td></tr>
         <tr><td>Loan completion</td><td>80%+ of the ones that moved forward become an actual loan.</td></tr>
         <tr><td>Overall quality score</td><td>Blend of the two above. You need <strong>80%+</strong> to clear it.</td></tr>
-        <tr><td>If visit raised is under 35%</td><td>You're marked <strong>At risk</strong> no matter what else looks good.</td></tr>
+        <tr><td>If visit raised is under 35%</td><td>You're marked <strong>At risk</strong>.</td></tr>
       </tbody>
     </table>
   </div>
@@ -186,7 +186,7 @@ a { color: var(--gold); }
       <thead><tr><th>Lead check</th><th>Rule</th></tr></thead>
       <tbody>
         <tr><td>Quality</td><td>2%+ of your leads turn into a loan.</td></tr>
-        <tr><td>If you miss it</td><td>You can't be a <strong>Star</strong> — you'll be <strong>Coaching</strong> instead, even with good effort and quality.</td></tr>
+        <tr><td>If you miss it</td><td>You can't be a <strong>Star</strong> — you'll be <strong>Coaching</strong> instead.</td></tr>
       </tbody>
     </table>
   </div>
@@ -251,7 +251,7 @@ a { color: var(--gold); }
 
 </div>
 
-<div id="tabpage-scoring">
+<div id="tabpage-scoring" style="display:none;">
 
 <section id="orgSec">
   <span class="marker">02 · Org view — month over month</span>
