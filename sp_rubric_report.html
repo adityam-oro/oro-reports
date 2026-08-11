@@ -123,6 +123,10 @@ a { color: var(--gold); }
       <span class="label"><a href="https://sp-scoring-site.vercel.app/thresholds.html" style="text-decoration:none;">Tier-1 rubric doc →</a></span>
     </div>
     <h1>SP rubric — full report</h1>
+    <div class="citytabs" id="fPage" style="margin-top:.6rem;">
+      <button class="citytab active" data-page="scoring">Scoring</button>
+      <button class="citytab" data-page="rules">Rules</button>
+    </div>
     <div class="filters">
       <div>
         <span class="label" style="display:block;margin-bottom:.35rem;">Months (pick any)</span>
@@ -148,89 +152,94 @@ a { color: var(--gold); }
 
 <div class="wrap">
 
+<div id="tabpage-rules" style="display:none;">
+
 <section id="rulesSec">
-  <span class="marker">01 · Rules of scoring — plain language</span>
-  <p><strong>You earn points every day for two things:</strong> meeting customers, and turning in leads.</p>
-  <p>1. Every customer you meet (Cx Met) = <strong>1 point</strong>.<br>
-  2. Every new lead you submit = <strong>half a point</strong> (2 leads = 1 point). A lead you resubmit that never gets accepted = <strong>a quarter point</strong> (4 leads = 1 point).<br>
-  3. No single day can earn more than <strong>6 points</strong>, no matter how many leads you send. One big day of leads can't cover for a whole month of low effort.</p>
-  <p><strong>Effort Score</strong> = the points you earned this month ÷ the most you could have earned (6 points × your working days). You need <strong>50% or higher</strong> to clear the effort bar.</p>
-  <p><strong>Quality Score</strong> = how well those customer visits turn into real business, in two steps:</p>
-  <p>1. <strong>Visit Raised %</strong> — of the customers you met, how many actually moved forward? Target: <strong>40%</strong>.<br>
-  2. <strong>Loan Completion %</strong> — of the ones that moved forward, how many became an actual loan? Target: <strong>80%</strong>.</p>
-  <p>We average how close you got to each target. You need <strong>80% or higher</strong> to clear the quality bar.</p>
-  <p><strong>Two extra checks, so the score can't be gamed:</strong></p>
-  <p>• <strong>Visit-Raised Floor</strong> — if under 35% of the customers you meet ever move forward, you're marked <span class="chip r">At risk</span> no matter how good your other numbers look. A number this low means the visits aren't real engagement.<br>
-  • <strong>Lead Quality Check</strong> — if your leads almost never turn into a loan (under 2%), you can't be a <span class="chip g">Star</span> even with great effort and quality — you'll be marked <span class="chip w">Coaching</span> instead. See "Why 2%?" below.</p>
-
-  <p><strong>Which box am I in?</strong></p>
-  <p>• <span class="chip g">Star</span> — Good effort (50%+) <strong>and</strong> good quality (80%+) <strong>and</strong> your leads convert (2%+). You're doing everything right.<br>
-  • <span class="chip w">Coaching</span> — Good effort, but quality is short, or your leads aren't converting. You're putting in the work — the follow-through needs work.<br>
-  • <span class="chip n">Push volume</span> — Good quality, but effort is short. You know how to convert — you just need to do more visits and leads.<br>
-  • <span class="chip r">At risk</span> — Both effort and quality are short. Or: your visit-raised rate is under 35% — that alone puts you here.</p>
-
+  <span class="marker">Rules of scoring</span>
   <div class="tbox">
     <table>
-      <thead><tr><th>Metric</th><th>Definition</th><th>Target</th></tr></thead>
+      <thead><tr><th>What you do</th><th>Points</th></tr></thead>
       <tbody>
-        <tr><td>Cx Met</td><td>Every visit for the SP (any lead source — not restricted to self-sourced leads) whose status reaches: VISIT_COMPLETED_GL, VISIT_COMPLETED_BRL, VISIT_COMPLETED_GBS, MAY_TXN, VISIT_CANCELLED_NIAM, VISIT_CANCELLED_IE, VISIT_CANCELLED_GS, MAY_TXN_RESCHEDULED, MAY_TXN_RNR, VISIT_CANCELLED_CC</td><td>6 / day</td></tr>
-        <tr><td>Callable leads — new</td><td>Self-sourced only: leads where <code>submitted_by</code> matches the SP's own agent id in <code>Quali-prod.lead_submissions</code>, counted once per distinct lead (deduped by lead_id), where the lead was ever accepted</td><td>2 leads = 1 Cx Met</td></tr>
-        <tr><td>Callable leads — existing</td><td>Same source, but the lead was never accepted (a resubmission of an already-known lead) — counts at half weight, so repeatedly resubmitting the same lead can't inflate effort the way a genuinely new lead does</td><td>4 leads = 1 Cx Met</td></tr>
-        <tr><td>Daily cap</td><td>Per SP, per calendar day: <code>min(Cx Met that day + weighted leads that day ÷ 2, 6)</code>, where weighted leads = new leads + existing leads × 0.5. A day cannot contribute more than 6 units no matter how many leads are submitted — this stops a burst of low-effort lead submissions from inflating the monthly effort score</td><td>≤ 6 / day, then summed for the month</td></tr>
-        <tr><td>Effort score</td><td>Sum of daily-capped units for the month ÷ (6 × working days)</td><td>≥ 50% clears the effort bar</td></tr>
-        <tr><td>Visit-raised floor</td><td>If visit-raised % (below) is under this floor, the SP is classified At risk regardless of effort or quality — a raise rate this low means the effort score isn't reflecting real customer engagement</td><td>&lt; 35% → At risk</td></tr>
-        <tr><td>Visits raised</td><td>Visit reaches status: VISIT_COMPLETED_BRL, VISIT_COMPLETED_GL, VISIT_CANCELLED_CC</td><td>40% of Cx Met</td></tr>
-        <tr><td>Loan completion</td><td>Visit reached Visits Raised status AND its linked lead has a <code>conversion_id</code> pointing to a real loan (joined live: <code>Quali-prod.sales_visit</code> → <code>lead.conversion_id</code> → <code>Oro.loans</code>), ÷ Visits Raised.</td><td>80% of visits raised</td></tr>
-        <tr><td>Quality score</td><td>Average of (visit % ÷ 40%) and (loan rate ÷ 80%), each capped at 100% before averaging so quality can never read above 100%</td><td>≥ 80% clears the quality bar</td></tr>
-        <tr><td>Lead→loan conversion</td><td>Of the SP's distinct self-sourced leads (deduped by lead_id, same population as Callable leads above), how many ever have a <code>conversion_id</code> set on the resulting lead — i.e. actually became a loan, regardless of which visit or SP touched it along the way. Measures whether the leads driving the SP's effort score are actually good leads, separate from visit-based quality</td><td>&lt; 2% while effort ≥ 50% → Coaching (overrides Star)</td></tr>
+        <tr><td>Meet a customer (Cx Met)</td><td class="num">1</td></tr>
+        <tr><td>Submit a new lead</td><td class="num">0.5 (2 leads = 1 point)</td></tr>
+        <tr><td>Resubmit a lead that was never accepted</td><td class="num">0.25 (4 leads = 1 point)</td></tr>
+        <tr><td>Most a single day can earn</td><td class="num">6</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">The table above is the exact, technical version of the rules for anyone who wants it. Scope: Bengaluru, Hyderabad, Pune only, all currently-active SPs — no minimum tenure requirement, except SPs who are both At risk and still within their first 3 months of joining, who are excluded from every stat and chart above but still shown (highlighted blue) in the leaderboard. Chennai is excluded — its SPs don't receive company-provided appointments, so this rubric's effort/quality definitions don't apply and a separate rule set is needed for that city. Working days = calendar days minus Sundays minus the 2nd and 4th Saturday of the month minus that city's state bank holidays (2026 Federal Bank calendar) landing on an otherwise-working day — so working days can differ slightly by city. The current month is month-to-date.</p>
+  <p class="caption">Effort score: add up your points for the months picked above, divide by your working days × 6, and that's your effort %. You need 50%+ to clear it. Quality score: how many of your customers moved forward (target 40%), blended with how many of those became a loan (target 80%). You need 80%+ to clear it. Under 35% moved-forward puts you At risk no matter what else looks good. Covers Bengaluru, Hyderabad, Pune.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Lead check</th><th>Rule</th></tr></thead>
+      <tbody>
+        <tr><td>Quality</td><td>2%+ of your leads turn into a loan.</td></tr>
+        <tr><td>If you miss it</td><td>You can't be a <strong>Star</strong> — you'll be <strong>Coaching</strong> instead, even with good effort and quality.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">A lead is any self-sourced lead you send us, counted once. "Converted" means it became a loan, whoever ended up doing the visit.</p>
+  <p class="caption"><strong>Why 2%:</strong> Hyderabad and Pune partners are almost always above 2% anyway, so this rule mostly matters for Bengaluru — it's the point where Bengaluru partners split into two groups: good leads vs. just a lot of leads.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Box</th><th>Effort</th><th>Quality</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip g">Star</span></td><td>Good (50%+)</td><td>Good (80%+), leads convert</td></tr>
+        <tr><td><span class="chip w">Coaching</span></td><td>Good (50%+)</td><td>Short, or leads aren't converting</td></tr>
+        <tr><td><span class="chip n">Push volume</span></td><td>Short</td><td>Good (80%+)</td></tr>
+        <tr><td><span class="chip r">At risk</span></td><td>Short</td><td>Short (or moved-forward rate under 35%)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">No minimum tenure, except partners who are both At risk and within their first 3 months — they're left out of every stat and chart, but still shown (in blue) on the Leaderboard. Chennai isn't covered — its partners don't get company-provided appointments, so this scoring doesn't fit their work.</p>
 </section>
 
-<section id="leadConvSec">
-  <span class="marker">01b · Why 2% lead conversion?</span>
-  <p>To be a <span class="chip g">Star</span>, an SP needs effort 50%+, quality 80%+, <strong>and</strong> at least 2% of their leads to turn into a real loan. Here's why 2% specifically.</p>
-  <p>We looked at how many leads turn into an actual loan, city by city, over three time windows. The tables below show how many SPs fall into each conversion band.</p>
-  <p>In Hyderabad and Pune, almost every SP already sits above 2% — most months, nearly the whole city is in the ">2%" column. Moving the bar up or down barely changes anything there.</p>
-  <p>Bengaluru is the opposite, and it's gotten worse over time: in Jan–Mar a few Bengaluru SPs were still above 2%, but by Jul–Aug <strong>every single one</strong> had dropped under 0.5%, despite submitting far more leads than the other two cities combined. 2% is the point where this actually shows up — it's not testing Hyderabad or Pune at all, but it clearly separates Bengaluru's "sends a lot of leads" from "sends good leads."</p>
-  <p><strong>In short:</strong> a high effort score built on leads that don't convert isn't real effort. The 2% check makes sure Star only goes to SPs whose leads are actually worth something, not just plentiful.</p>
+<section id="leadCitySec">
+  <span class="marker">Lead-to-loan conversion, by city</span>
+  <p>How many partners in each city fall into each conversion band, over three time windows. Each cell is a count of partners. "0 leads" means the partner sent no leads at all in that window.</p>
 
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Jan–Mar</p>
   <div class="tbox">
     <table>
-      <thead><tr><th>Jan–Mar</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
       <tbody>
-        <tr><td>Bengaluru</td><td class="num">2</td><td class="num">7</td><td class="num">2</td><td class="num">0</td><td class="num">2</td><td class="num">2</td></tr>
-        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">24</td><td class="num">0</td></tr>
-        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">7</td><td class="num">2</td><td class="num">0</td><td class="num">2</td><td class="num">2</td><td class="num">2</td></tr>
+        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">24</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">0</td><td class="num">0</td></tr>
       </tbody>
     </table>
   </div>
 
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Apr–Jun</p>
   <div class="tbox">
     <table>
-      <thead><tr><th>Apr–Jun</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
       <tbody>
-        <tr><td>Bengaluru</td><td class="num">9</td><td class="num">4</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
-        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">34</td><td class="num">0</td></tr>
-        <tr><td>Pune</td><td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">4</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">1</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">34</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">3</td><td class="num">3</td><td class="num">0</td></tr>
       </tbody>
     </table>
   </div>
 
+  <p class="label" style="display:block;margin:1rem 0 .35rem;">Jul–till date</p>
   <div class="tbox">
     <table>
-      <thead><tr><th>Jul–till date</th><th>below 0.5%</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>0 leads</th></tr></thead>
+      <thead><tr><th>City</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>(below 0.5%)</th><th>(0 leads)</th></tr></thead>
       <tbody>
-        <tr><td>Bengaluru</td><td class="num">13</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
-        <tr><td>Hyderabad</td><td class="num">2</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num">24</td><td class="num">0</td></tr>
-        <tr><td>Pune</td><td class="num">1</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">13</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num">24</td><td class="num">2</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">3</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">1</td><td class="num">0</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="caption">One row per SP per city, counted by their lead→loan conversion rate over that window. "0 leads" means the SP submitted no self-sourced leads in that window.</p>
+  <p class="caption">These tables are fixed reference windows and do not change with the month filter above — they're here to back up the "why 2%" rule, not to be filtered live.</p>
 </section>
+
+</div>
+
+<div id="tabpage-scoring">
 
 <section id="orgSec">
   <span class="marker">02 · Org view — month over month</span>
@@ -277,6 +286,8 @@ a { color: var(--gold); }
   </div>
   <p class="caption">Reflects the city and months selected above. Sorted by quality %, descending. One row per SP — totals summed across selected months, then rescored. Bengaluru/Hyderabad/Pune only, no minimum tenure requirement. Rows highlighted gold are SPs within their first 3 months of joining; rows highlighted blue are At risk AND within their first 3 months — held out of every stat and chart above, but still shown here so nobody drops out of sight entirely.</p>
 </section>
+
+</div>
 
 </div>
 
@@ -357,6 +368,17 @@ function renderCityTabs(){
   el.innerHTML = CITIES.map(c => `<button class="citytab${c===activeCity?' active':''}" data-city="${c}">${c}</button>`).join('');
   el.querySelectorAll('.citytab').forEach(btn => btn.addEventListener('click', () => { activeCity = btn.dataset.city; render(); }));
 }
+
+// Scoring / Rules page tabs — Rules is a static explainer, so it only needs to show/hide.
+document.querySelectorAll('#fPage .citytab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#fPage .citytab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const page = btn.dataset.page;
+    document.getElementById('tabpage-scoring').style.display = page === 'scoring' ? '' : 'none';
+    document.getElementById('tabpage-rules').style.display = page === 'rules' ? '' : 'none';
+  });
+});
 
 // Aggregate SCORED rows to one row per SP across a given set of months, then rescore — sum first,
 // re-derive effort/quality from the summed totals (never re-cap or re-average a multi-month blend).
