@@ -236,8 +236,19 @@ async function main() {
   // release_type is populated on barely 2% of real completions, and RELEASE_VISIT_COMPLETED itself was
   // only adopted as a status in July 2026 — before that, releases carry ordinary VISIT_COMPLETED status.
   // visit_type='GR' is the only signal that holds across the whole date range.
+  // Aggregated in SQL (GROUP BY agent+month, not one row per visit) — fixed 2026-08-11 after the Aug 9
+  // scheduled run silently undercounted almost every AP. The unaggregated version of this query returns
+  // 26,000+ rows for the full roster/date range, and Metabase's /api/dataset truncates native queries at
+  // ~2,000 rows with no error or warning, so the JS-side aggregation below was only ever seeing a small,
+  // arbitrary slice of real visits. Grouping in SQL keeps the row count to (agents × months), safely under
+  // the cap regardless of roster size or how far back the date range grows.
   const visitQuery = `
-    SELECT agent_auth_id, visit_time::date AS day, visit_status, loan_subtype, release_type, visit_type
+    SELECT agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month,
+      count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND release_type NOT IN ('PRIVATE_SALE','PART_PRIVATE_SALE')) AS release_cnt,
+      count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND release_type IN ('PRIVATE_SALE','PART_PRIVATE_SALE')) AS private_sale_cnt,
+      count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='FRESH_LOAN') AS fresh_loan_cnt,
+      count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='TAKEOVER') AS takeover_cnt,
+      count(*) FILTER (WHERE visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id) AS raised_cnt
     FROM visits
     WHERE agent_auth_id IN (${oro2AgentInList})
       AND visit_time >= '2026-01-01'
@@ -246,30 +257,33 @@ async function main() {
         OR (visit_status='VISIT_COMPLETED' AND loan_subtype IN ('FRESH_LOAN','TAKEOVER'))
         OR (visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id)
       )
+    GROUP BY agent_auth_id, to_char(visit_time, 'YYYY-MM')
   `;
   const visitRows = await runQuery(ORO2_DB_ID, visitQuery);
-  console.log(`  ${visitRows.length} visit rows`);
+  console.log(`  ${visitRows.length} agent-month visit rows`);
 
-  visitRows.forEach(([rawAgent, day, status, loanSubtype, releaseType, visitType]) => {
+  visitRows.forEach(([rawAgent, month, releaseCnt, privateSaleCnt, freshLoanCnt, takeoverCnt, raisedCnt]) => {
     const agent = authIdToAgentId.get(rawAgent) || rawAgent;
-    if (visitType === 'GR' && (status === 'VISIT_COMPLETED' || status === 'RELEASE_VISIT_COMPLETED')) {
-      if (releaseType === 'PRIVATE_SALE' || releaseType === 'PART_PRIVATE_SALE') addCount(agent, day, 'privateSale');
-      else addCount(agent, day, 'release');
-    }
-    else if (status === 'VISIT_COMPLETED' && loanSubtype === 'FRESH_LOAN') addCount(agent, day, 'freshLoan');
-    else if (status === 'VISIT_COMPLETED' && loanSubtype === 'TAKEOVER') addCount(agent, day, 'takeover');
-    else if (status === 'VISIT_CANCELLED') addCount(agent, day, 'raised');
+    const day = `${month}-01`;
+    addCount(agent, day, 'release', releaseCnt);
+    addCount(agent, day, 'privateSale', privateSaleCnt);
+    addCount(agent, day, 'freshLoan', freshLoanCnt);
+    addCount(agent, day, 'takeover', takeoverCnt);
+    addCount(agent, day, 'raised', raisedCnt);
   });
 
   console.log(`Fetching gbs_visits (Oro 2.0, Gold sale) for ${agentIds.length} APs...`);
+  // Aggregated in SQL too (see visitQuery note above) — gbs_visits volume is currently low enough to stay
+  // under the row cap unaggregated, but grouping here removes that as a future failure mode.
   const gbsQuery = `
-    SELECT agent_auth_id, visit_time::date AS day
+    SELECT agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month, count(*) AS n
     FROM gbs_visits
     WHERE agent_auth_id IN (${oro2AgentInList}) AND status = 'VISIT_COMPLETED' AND visit_time >= '2026-01-01'
+    GROUP BY agent_auth_id, to_char(visit_time, 'YYYY-MM')
   `;
   const gbsRows = await runQuery(ORO2_DB_ID, gbsQuery);
-  console.log(`  ${gbsRows.length} gbs_visits rows`);
-  gbsRows.forEach(([rawAgent, day]) => addCount(authIdToAgentId.get(rawAgent) || rawAgent, day, 'goldSale'));
+  console.log(`  ${gbsRows.length} agent-month gbs_visits rows`);
+  gbsRows.forEach(([rawAgent, month, n]) => addCount(authIdToAgentId.get(rawAgent) || rawAgent, `${month}-01`, 'goldSale', n));
 
   // Lead Generation source, changed 2026-07-31 (second pass): Quali-prod.lead_submissions.submitted_by
   // (the actual "did this partner submit a lead" record, with an approve/reject outcome attached) instead of
@@ -280,6 +294,9 @@ async function main() {
   // lead (half points) — verified ~95% of never-accepted leads already existed in the system before this
   // partner's submission.
   console.log('Fetching lead_submissions (Quali-prod) for lead-generation points...');
+  // Aggregated in SQL by (submitted_by, month) — same fix as visitQuery above. The unaggregated form
+  // (one row per distinct lead) returns one row per lead across the whole roster — tens of thousands for
+  // this org — which blows well past Metabase's ~2,000-row native-query cap just as badly as visitQuery did.
   const leadSubmissionsQuery = `
     WITH per_lead AS (
       SELECT submitted_by, lead_id, min(submitted_at)::date AS day, bool_or(acceptance_status = 'YES') AS approved
@@ -287,14 +304,20 @@ async function main() {
       WHERE submitted_by IN (${agentIds.join(',')}) AND submitted_at >= '2026-01-01'
       GROUP BY submitted_by, lead_id
     )
-    SELECT pl.submitted_by, pl.day, pl.approved, (l.conversion_id IS NOT NULL) AS converted
+    SELECT pl.submitted_by, to_char(pl.day, 'YYYY-MM') AS month,
+      count(*) FILTER (WHERE pl.approved) AS new_leads,
+      count(*) FILTER (WHERE NOT pl.approved) AS existing_leads,
+      count(*) FILTER (WHERE l.conversion_id IS NOT NULL) AS converted_leads
     FROM per_lead pl JOIN lead l ON l.id = pl.lead_id
+    GROUP BY pl.submitted_by, to_char(pl.day, 'YYYY-MM')
   `;
   const leadSubmissionRows = await runQuery(QUALI_DB_ID, leadSubmissionsQuery);
-  console.log(`  ${leadSubmissionRows.length} distinct-lead submission rows`);
-  leadSubmissionRows.forEach(([agent, day, approved, converted]) => {
-    addCount(String(agent), day, approved ? 'leadGenNew' : 'leadGenExisting');
-    if (converted) addCount(String(agent), day, 'leadsConverted');
+  console.log(`  ${leadSubmissionRows.length} agent-month lead_submissions rows`);
+  leadSubmissionRows.forEach(([agent, month, newCount, existingCount, convertedCount]) => {
+    const day = `${month}-01`;
+    addCount(String(agent), day, 'leadGenNew', newCount);
+    addCount(String(agent), day, 'leadGenExisting', existingCount);
+    addCount(String(agent), day, 'leadsConverted', convertedCount);
   });
 
   const RAW = [];
