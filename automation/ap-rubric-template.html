@@ -170,6 +170,110 @@ __MONTH_CHECKBOXES__
   <p class="caption">A distinct lead is counted once per <code>lead_id</code> (<code>lead_submissions.submitted_by</code>), whether it was ever accepted (New leads) or never accepted — i.e. a resubmission of an already-known lead (Existing leads). Both count toward the volume floor; the conversion rate is converted leads ÷ total distinct leads (New + Existing). "Converted" means <code>lead.conversion_id</code> is set (the lead resulted in a loan). Lead counts include all lead origins (partner app, customer app, and others) per the user's instruction — not filtered by source channel.</p>
 </section>
 
+<section id="leadRulesSec">
+  <span class="marker">01b · Lead bonus — rules explained</span>
+  <p>The Lead Bonus is the only way sending leads affects your score. Here is everything you need to know about it, in plain language.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Term</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>A lead</td><td>Any customer lead you send us. It can come from any source — the partner app, the customer app, or anywhere else. We do not care where it came from, only that you sent it.</td></tr>
+        <tr><td>Counted once</td><td>Each lead is counted only one time, even if you send the same lead more than once. Sending it again does not give you extra credit.</td></tr>
+        <tr><td>New lead</td><td>A lead that we accepted the first time it came in. This means it was a genuinely new customer we did not already have.</td></tr>
+        <tr><td>Existing lead</td><td>A lead that was never accepted, meaning it's a customer we already had in our system before you sent it. It still gets counted as a lead you sent, but it is not a new customer.</td></tr>
+        <tr><td>Converted lead</td><td>A lead that went all the way and turned into an actual loan.</td></tr>
+        <tr><td>Conversion %</td><td>Converted leads ÷ total leads you sent, as a percentage. This shows how many of your leads are turning into real business, not just how many leads you send.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Bonus rule</th><th>What you need to do</th></tr></thead>
+      <tbody>
+        <tr><td>Rule 1 — Volume</td><td>Send an average of <strong>100 or more leads every month</strong>. We add up all your leads over the months you're being scored on, then divide by the number of months — even months where you sent nothing still count toward the average.</td></tr>
+        <tr><td>Rule 2 — Quality</td><td>At least <strong>2 out of every 100 leads</strong> you send must turn into a loan (2%+ conversion).</td></tr>
+        <tr><td>The bonus</td><td><strong>Both rules must be true at the same time.</strong> Sending a lot of leads with no conversions does not earn it. Having a great conversion rate on very few leads does not earn it either. You need both volume and quality together.</td></tr>
+        <tr><td>What you get</td><td>+10 points added to your points/day above, on top of everything else you already earn.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption"><strong>What does NOT count:</strong> loans you close yourself by doing the appraisal visit (Fresh Loan, Takeover, and so on) are scored separately above — they are not part of the Lead Bonus. The Lead Bonus only looks at loans that came from a lead <strong>you personally sent us</strong>.</p>
+</section>
+
+<section id="leadWhySec">
+  <span class="marker">01c · Why 100 leads and 2%?</span>
+  <p><strong>Why 100 leads a month?</strong> Because that is a real, hard number — not one picked out of thin air. Only partners in Bengaluru ever send this many leads. No partner in Chennai, Hyderabad, or Pune has hit this mark, not even once, not even in their best month. So 100 is the true bar that only the busiest partners can clear.</p>
+  <p><strong>Why 2% conversion?</strong> We looked at how many leads turn into an actual loan, city by city, over four different time windows. The tables below show the count of partners in each conversion band.</p>
+  <p>In Chennai, Hyderabad, and Pune, almost every partner already sits above 2%. Moving the bar up or down barely changes anything there — most partners pass either way, so 2% is not really "testing" them.</p>
+  <p>Bengaluru is different. Its partners are spread out across every band — some near 0%, some well above 2%. That means 2% is the point where Bengaluru partners actually split into two clear groups: partners who send <em>good</em> leads, and partners who just send <em>a lot</em> of leads.</p>
+  <p><strong>In short:</strong> 100 leads/month picks out the partners who send enough leads. 2% conversion then picks out, among them, the ones sending leads that actually turn into loans — instead of just leads for the sake of leads.</p>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jan–Mar</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">3</td></tr>
+        <tr><td>Bengaluru</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">12</td><td class="num">2</td><td class="num">3</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">24</td><td class="num">1</td><td class="num">13</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Apr–Jun</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">6</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">28</td><td class="num">4</td><td class="num">4</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">0</td><td class="num">1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jul–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">2</td><td class="num">2</td><td class="num">11</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">11</td><td class="num">3</td><td class="num">1</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">26</td><td class="num">6</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">3</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tbox">
+    <table>
+      <thead><tr><th>Jan–till date</th><th>0.5–1%</th><th>1–1.5%</th><th>1.5–2%</th><th>&gt;2%</th><th>below 0.5%</th><th>0 leads</th></tr></thead>
+      <tbody>
+        <tr><td>Chennai</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">15</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Bengaluru</td><td class="num">0</td><td class="num">7</td><td class="num">3</td><td class="num">9</td><td class="num">5</td><td class="num">0</td></tr>
+        <tr><td>Hyderabad</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">31</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">Each cell is a count of partners. "0 leads" means the partner sent no leads at all in that time window, so there is no conversion number to show for them. These four tables are fixed reference windows (Jan–Mar, Apr–Jun, Jul–till date, Jan–till date) and do not change with the month filter above — they are here to explain the rule, not to be filtered.</p>
+</section>
+
+<section id="leadCitySec">
+  <span class="marker">01d · Lead generation &amp; conversion by city</span>
+  <div class="tbox">
+    <table>
+      <thead><tr>
+        <th>City</th><th>Roster</th><th>Sent 1+ lead</th><th>Total leads</th><th>Avg leads/AP/month</th>
+        <th>Turned into loan</th><th>Conversion %</th><th>Meets 100/mo rule</th><th>Meets 2%+ rule</th><th>Gets the bonus</th>
+      </tr></thead>
+      <tbody id="leadCityTableBody"></tbody>
+    </table>
+  </div>
+  <p class="caption">Reflects the months selected above (always shows all four cities, regardless of the city tab). "Gets the bonus" means both rules are true at the same time for that city's partners over the selected months.</p>
+</section>
+
 <section id="orgSec">
   <span class="marker">02 · Org view — month over month</span>
   <div class="stats" id="orgStats"></div>
@@ -439,10 +543,62 @@ function renderCityTable(months, cityFilter){
   `;
 }
 
+// Lead generation & conversion by city (section 01d) — always all four cities, independent of the
+// active city tab, so a partner or manager can see the full picture regardless of which city they're
+// currently filtered to elsewhere on the page. Every roster member appears (even with zero leads), same
+// backfill principle as aggregateAgents.
+function renderLeadCityTable(months){
+  const totals = new Map();
+  IDENTITY.forEach(([id,,city]) => totals.set(id, {city, leadGenNew:0, leadGenExisting:0, leadsConverted:0}));
+  RAW.forEach(r => {
+    if (!months.includes(r.month)) return;
+    const cur = totals.get(r.agent);
+    if (!cur) return;
+    cur.leadGenNew += r.leadGenNew; cur.leadGenExisting += r.leadGenExisting; cur.leadsConverted += r.leadsConverted;
+  });
+  const numMonths = months.length;
+  const perAgent = [...totals.values()].map(a => {
+    const totalLeads = a.leadGenNew + a.leadGenExisting;
+    const lb = leadBonusFor(totalLeads, a.leadsConverted, numMonths);
+    return {city: a.city, totalLeads, converted: a.leadsConverted, ...lb};
+  });
+  const byCity = new Map();
+  perAgent.forEach(a => {
+    const cur = byCity.get(a.city) || {city:a.city, roster:0, sending:0, totalLeads:0, converted:0, clearsVolume:0, clearsConv:0, bonus:0};
+    cur.roster++;
+    if (a.totalLeads > 0) cur.sending++;
+    cur.totalLeads += a.totalLeads; cur.converted += a.converted;
+    if (a.avgMonthlyLeads >= LEAD_VOLUME_FLOOR) cur.clearsVolume++;
+    if (a.conversionPct >= LEAD_CONVERSION_FLOOR) cur.clearsConv++;
+    if (a.clears) cur.bonus++;
+    byCity.set(a.city, cur);
+  });
+  const rows = [...byCity.values()].sort((a,b) => a.city.localeCompare(b.city));
+  document.getElementById('leadCityTableBody').innerHTML = rows.map(c => {
+    const avgPerAPMonth = c.roster && numMonths ? (c.totalLeads/c.roster/numMonths) : 0;
+    const convPct = c.totalLeads ? (c.converted/c.totalLeads*100) : 0;
+    return `
+    <tr>
+      <td>${c.city}</td>
+      <td class="num">${c.roster}</td>
+      <td class="num">${c.sending}</td>
+      <td class="num">${c.totalLeads}</td>
+      <td class="num">${avgPerAPMonth.toFixed(1)}</td>
+      <td class="num">${c.converted}</td>
+      <td class="num">${convPct.toFixed(1)}%</td>
+      <td class="num">${c.clearsVolume}</td>
+      <td class="num">${c.clearsConv}</td>
+      <td class="num">${c.bonus}</td>
+    </tr>
+  `;
+  }).join('');
+}
+
 function render(){
   renderCityTabs();
   const months = selectedMonths();
   renderCityTable(months, activeCity);
+  renderLeadCityTable(months);
   let rows = SCORED.filter(r => months.includes(r.month));
   if (activeCity !== 'All') rows = rows.filter(r => r.city === activeCity);
 
