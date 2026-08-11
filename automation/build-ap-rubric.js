@@ -93,6 +93,17 @@ async function runQuery(databaseId, query) {
   }
   const json = await res.json();
   if (!json.data || !json.data.rows) throw new Error(`Unexpected Metabase response shape: ${JSON.stringify(json).slice(0, 300)}`);
+  // Metabase's /api/dataset silently truncates native queries at ~2,000 rows and reports it via
+  // data.rows_truncated rather than an error — this is exactly what caused every AP to read as At risk
+  // after the Aug 9 refresh (visitQuery/leadSubmissionsQuery were unaggregated at the time and got cut
+  // off). All queries here are now aggregated (GROUP BY agent+month) specifically to stay well under that
+  // cap, but if a future edit reintroduces a per-row query, or the roster/date-range grows enough to hit
+  // it anyway, fail loudly instead of silently building a report on partial data. A failed build step
+  // means the "commit and push" step never runs, so the last good report stays live instead of being
+  // overwritten with garbage.
+  if (json.data.rows_truncated) {
+    throw new Error(`Metabase truncated this query's results (rows_truncated=${json.data.rows_truncated}) — query needs to aggregate further, not just add a LIMIT. Query:\n${query.slice(0, 300)}`);
+  }
   return json.data.rows;
 }
 
@@ -329,6 +340,18 @@ async function main() {
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
+
+  // Second, independent guard against the Aug 9 failure mode (belt-and-braces alongside the
+  // rows_truncated check in runQuery): even if some future bug undercounts without Metabase ever
+  // reporting truncation, an implausible drop in roster-wide coverage should still block the publish.
+  // Long-tenured full-time APs going literally quiet across the ENTIRE multi-month window is not a
+  // realistic outcome — if it happens, something upstream broke. Refuse to overwrite the live report on
+  // a guess; fail the build step instead so "commit and push" never runs and the last good report stays up.
+  const agentsWithAnyActivity = new Set(RAW.map(r => r[0])).size;
+  const coverage = agentsWithAnyActivity / agentIds.length;
+  if (coverage < 0.5) {
+    throw new Error(`Only ${agentsWithAnyActivity} of ${agentIds.length} APs (${(coverage * 100).toFixed(0)}%) have any recorded activity across ${months[0]}–${currentMonthKey} — refusing to publish. This is the same failure signature as the Aug 9 incident (Metabase query truncation); check runQuery's rows_truncated guard and whether any query here reverted to an unaggregated (per-row) form.`);
+  }
 
   const monthCheckboxes = months.map(key => {
     const checked = key === currentMonthKey ? ' checked' : '';
