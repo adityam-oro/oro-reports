@@ -57,16 +57,14 @@ async function runQuery(databaseId, query) {
 // Chennai's Gowtham B (82483) is deliberately included so any future re-inclusion of Chennai only
 // requires adding 'Chennai' back to CITIES in the template, not re-deriving the roster.
 // doj resolved 2026-08-01 by matching name (+ city where ambiguous) against the full HR export Aditya
-// supplied; null where unresolved (treated as long-tenured, never flagged as a new joiner) rather than
-// guessed. Kembhasaram Pavan Kumar (33799): no matching name found in the HR export. Devaraju J (77107
-// AND 84332): two different agent ids share this exact name in Hyderabad but only one HR record exists
-// ("Jangala Devaraju") — left both null rather than risk attributing it to the wrong person. Srikanth K
-// (84320), Gerapramod K (84333), Nagaraju K (90723): matched by name but the HR sheet shows them
-// "Abscond" — used their DOJ anyway since they're clearly active in the live visit data (same
-// stale-HR-status pattern the AP report ran into), but worth a second look if it ever looks wrong.
+// supplied, then corrected/confirmed by Aditya directly: Kembhasaram Pavan Kumar (33799) = ORO00546
+// Pavan Kumar, DOJ 2024-02-19. Devaraju J was a duplicate — 77107 and 84332 were the same real person
+// (ORO00932, DOJ 2025-11-18); 77107 is removed below (it only ever had Jan-Feb 2026 activity, then went
+// dark, while 84332 has continuous activity through Jul 2026 — kept the id that's actually still active).
+// Srikanth K (84320) has left the company and is removed from the roster entirely, per Aditya.
 const IDENTITY = [
   ["2525","Sridhar S","Bengaluru","2021-12-02"],["5537","Ramachari Nv","Bengaluru","2022-07-13"],["33792","Vuda Narayana Rao","Hyderabad","2024-02-09"],
-  ["33799","Kembhasaram Pavan Kumar","Hyderabad",null],["43896","Nagarjuna N","Bengaluru","2024-10-01"],["46963","Anugula Pranith Kumar Reddy","Hyderabad","2024-11-16"],
+  ["33799","Kembhasaram Pavan Kumar","Hyderabad","2024-02-19"],["43896","Nagarjuna N","Bengaluru","2024-10-01"],["46963","Anugula Pranith Kumar Reddy","Hyderabad","2024-11-16"],
   ["47546","Ganta Ayyappa Swamy","Hyderabad","2024-12-09"],["47917","Madapa Anil","Hyderabad","2025-01-02"],["50323","Angothu Narendar","Hyderabad","2025-01-27"],
   ["52077","Gummadi Ramesh","Hyderabad","2025-01-28"],["53219","Sreedhar Kamitin","Hyderabad","2025-02-03"],["57102","M Manigandan","Bengaluru","2025-04-12"],
   ["60846","Pakhare Yuvraj Balasaheb","Pune","2025-05-22"],["63747","Guguloth Venkatesh","Hyderabad","2025-06-23"],["63751","Ramagiri Sunil","Hyderabad","2025-05-07"],
@@ -76,12 +74,12 @@ const IDENTITY = [
   ["70462","Medida Praveen Kumar","Hyderabad","2024-05-02"],["72083","Chinthalathadem Sai Kiran","Hyderabad","2025-10-07"],["72107","Tejas V","Bengaluru","2025-10-06"],
   ["72222","Ramavath Naga","Hyderabad","2025-10-06"],["72503","Nanjunda F Talwar","Bengaluru","2025-10-09"],["73112","Arun Kumar","Bengaluru","2025-10-14"],
   ["73286","Pavan Kumar S","Bengaluru","2025-10-06"],["73462","Nandisha A N","Bengaluru","2025-09-26"],["73897","Sarvesh Manoj Dalu","Pune","2025-10-28"],
-  ["76922","Vaibhav Tukaram Shirure","Pune","2025-12-01"],["77098","Tarun Prem Khemlani","Hyderabad","2025-11-17"],["77107","Devaraju J","Hyderabad",null],
+  ["76922","Vaibhav Tukaram Shirure","Pune","2025-12-01"],["77098","Tarun Prem Khemlani","Hyderabad","2025-11-17"],
   ["77431","Banda Sampath Kumar","Hyderabad","2025-11-17"],["77460","Shaik Khaja Mohiddin","Hyderabad","2025-11-17"],["77463","Bankh Srikanth Reddy","Hyderabad","2025-12-01"],
   ["77467","Chillukamari Sridhar","Hyderabad","2025-11-17"],["77470","Yerukala Uday Kiran","Hyderabad","2025-11-17"],["77477","Banapuram Venkata Sai","Hyderabad","2025-11-20"],
   ["77480","Pavan Kumar Reddy M","Bengaluru","2025-11-10"],["77587","Kashif Khan","Bengaluru","2025-11-10"],["77616","Ajmal Khan","Bengaluru","2025-11-10"],
   ["78233","Jonak Vamshi","Hyderabad","2025-12-09"],["78493","Tumalapalli Chandrashekar","Hyderabad","2025-11-17"],["82065","Swapnil Tonde","Pune","2026-01-08"],
-  ["82483","Gowtham B","Chennai","2026-01-22"],["84332","Devaraju J","Hyderabad",null],["84320","Srikanth K","Bengaluru","2026-02-13"],
+  ["82483","Gowtham B","Chennai","2026-01-22"],["84332","Devaraju J","Hyderabad","2025-11-18"],
   ["84333","Gerapramod K","Hyderabad","2026-02-12"],["89925","Nagaraja C","Bengaluru","2026-03-31"],["90721","Nikhil M","Hyderabad","2026-02-24"],
   ["90723","Nagaraju K","Hyderabad","2026-04-09"],["90741","Praveen S","Bengaluru","2026-04-29"],["92067","Tejas Vg","Pune","2026-05-06"],
   ["92952","Sumit Rk","Pune","2026-05-06"],["93151","Ambarisha V","Bengaluru","2026-06-02"],["93448","Harshad Sa","Pune","2026-05-20"],
