@@ -11,11 +11,20 @@
 //   Release completed         20 pts   visits.visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED'), release_type not IN (PRIVATE_SALE, PART_PRIVATE_SALE) — see the query below for why visit_type='GR' (not release_type/RELEASE_VISIT_COMPLETED alone) is the detection signal
 //   Private sale completed    20 pts   same as above, with release_type IN (PRIVATE_SALE, PART_PRIVATE_SALE)
 //   Gold sale (GBS) completed 30 pts   gbs_visits.status='VISIT_COMPLETED' (separate table/product, agent_auth_id)
-//   Visit raised (no completion) 15 pts visits.visit_status='VISIT_CANCELLED' where the AP still did the work
-//                                       (traveled, engaged the customer) but it didn't close — cancellation_reason
-//                                       shows the customer backed out ("Cancelled by Customer" / "customer_cancelled"),
-//                                       NOT system/auto-cancellations ("Auto-cancelled: ..."). A visit that reaches
-//                                       VISIT_COMPLETED earns its completion-type points instead, never this bucket too.
+//   Visit raised (no completion) 15 pts visits.visit_status='VISIT_CANCELLED', cancelled_by_auth_id =
+//                                       customer_auth_id (customer backed out, not a system/internal cancel),
+//                                       AND visited_time IS NOT NULL — gated 2026-08-14 so the AP only earns
+//                                       this if they actually reached/started the visit before the customer
+//                                       cancelled; a cancel with no visited_time (customer backed out before
+//                                       the AP got there) earns nothing. visited_time is populated on 98.9% of
+//                                       VISIT_COMPLETED rows org-wide vs. only ~2% of customer-cancelled rows,
+//                                       confirming it's a real "AP reached the visit" signal, not noise.
+//                                       A visit that reaches VISIT_COMPLETED earns its completion-type points
+//                                       instead, never this bucket too. Split loans / multiple APs on one loan /
+//                                       a visit cancelled and re-raised the next day all need no special-case
+//                                       handling: scoring is per visit row keyed to that row's own
+//                                       agent_auth_id, so each AP's own attempt (raised or completed) scores
+//                                       independently and correctly by construction.
 //   Lead generation is NOT part of the core 100pt/day score (removed 2026-08-05, see Lead Bonus below) — the
 //   new/existing counts are still tracked and shown in the report, they just no longer feed totalPoints.
 //   Lead Bonus                +10 pts  Added to an AP's final points/day, AFTER the core 100pt/day cap (so it
@@ -37,6 +46,19 @@
 //                                       existed in the system before the rejected submission, confirmed via
 //                                       lead.created_at predating the submission and lead.duplicate_updated_at
 //                                       being set).
+//   Raiser bonus (self-sourced/referral) 30 pts flat, added 2026-08-14 per the user's clarified visit-raising
+//                                       flow: an AP can raise/source a visit (Quali-prod lead.appointment_booked_by_id)
+//                                       that a DIFFERENT AP ends up conducting (visits.agent_auth_id via
+//                                       lead.conversion_id -> visits.loan_id). If that loan's visit completes
+//                                       (any type — Fresh/Takeover/Release/GBS all pay the same flat 30 to the
+//                                       raiser), the raiser earns 30 pts regardless of what the completer earns
+//                                       for their own completion. If the SAME AP raised and completed it, no
+//                                       bonus is added — they already score full completion points, and adding
+//                                       this on top would double-count. If the loan never completes, the raiser
+//                                       gets nothing (no partial-credit bucket for the raiser — that's the
+//                                       assigned/conducting AP's "Visit raised" 15-pt bucket below, which is a
+//                                       separate concept keyed to whoever actually attempted the visit, not who
+//                                       sourced it).
 //
 // Self-sourced Cx Met / SP Cx Met / SP Visit Raised / SP Loan Completed (from the removed Double Agent role)
 // and the later "Cx Met" informational column that replaced them were both removed 2026-08-05 (third pass) —
@@ -236,7 +258,7 @@ async function main() {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const key = `${agent}|${month}`;
-    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0 };
+    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, raiserBonus: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0 };
     cur[field] += n;
     monthAgg.set(key, cur);
   }
@@ -259,14 +281,14 @@ async function main() {
       count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND release_type IN ('PRIVATE_SALE','PART_PRIVATE_SALE')) AS private_sale_cnt,
       count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='FRESH_LOAN') AS fresh_loan_cnt,
       count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='TAKEOVER') AS takeover_cnt,
-      count(*) FILTER (WHERE visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id) AS raised_cnt
+      count(*) FILTER (WHERE visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id AND visited_time IS NOT NULL) AS raised_cnt
     FROM visits
     WHERE agent_auth_id IN (${oro2AgentInList})
       AND visit_time >= '2026-01-01'
       AND (
         (visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED'))
         OR (visit_status='VISIT_COMPLETED' AND loan_subtype IN ('FRESH_LOAN','TAKEOVER'))
-        OR (visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id)
+        OR (visit_status = 'VISIT_CANCELLED' AND cancelled_by_auth_id = customer_auth_id AND visited_time IS NOT NULL)
       )
     GROUP BY agent_auth_id, to_char(visit_time, 'YYYY-MM')
   `;
@@ -331,12 +353,53 @@ async function main() {
     addCount(String(agent), day, 'leadsConverted', convertedCount);
   });
 
+  // Raiser bonus (see top-of-file note): find every roster AP's self-sourced/referral lead that has
+  // converted to a loan, then check Oro 2.0 for whether that loan's visit actually completed and who
+  // completed it.
+  console.log('Fetching lead.appointment_booked_by_id -> conversion_id (Quali-prod) for raiser-bonus attribution...');
+  const raiserLeadQuery = `
+    SELECT appointment_booked_by_id, conversion_id
+    FROM lead
+    WHERE appointment_booked_by_id IN (${agentIds.join(',')})
+      AND conversion_id IS NOT NULL
+      AND created_at >= '2026-01-01'
+  `;
+  const raiserLeadRows = await runQuery(QUALI_DB_ID, raiserLeadQuery);
+  console.log(`  ${raiserLeadRows.length} booked-appointment/conversion rows`);
+
+  if (raiserLeadRows.length) {
+    const loanIds = [...new Set(raiserLeadRows.map(([, loanId]) => loanId))];
+    // DISTINCT ON picks each loan's earliest completed visit (by time) — the agent and month that closed it.
+    const loanCompletionQuery = `
+      SELECT DISTINCT ON (loan_id) loan_id, agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month
+      FROM visits
+      WHERE loan_id IN (${loanIds.join(',')})
+        AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED')
+      ORDER BY loan_id, visit_time ASC
+    `;
+    const loanCompletionRows = await runQuery(ORO2_DB_ID, loanCompletionQuery);
+    console.log(`  ${loanCompletionRows.length} completed loans found for raiser-bonus check`);
+    const completionByLoan = new Map(loanCompletionRows.map(([loanId, rawAgent, month]) =>
+      [loanId, { completerAgent: authIdToAgentId.get(rawAgent) || rawAgent, month }]));
+
+    let raiserBonusCount = 0;
+    raiserLeadRows.forEach(([rawBooker, loanId]) => {
+      const booker = String(rawBooker);
+      const completion = completionByLoan.get(loanId);
+      if (!completion) return; // loan never completed — raiser gets nothing
+      if (completion.completerAgent === booker) return; // same AP raised and completed — already scored via completion pts
+      addCount(booker, `${completion.month}-01`, 'raiserBonus', 1);
+      raiserBonusCount++;
+    });
+    console.log(`  ${raiserBonusCount} raiser-bonus events attributed (different AP completed the raiser's sourced loan)`);
+  }
+
   const RAW = [];
   agentIds.forEach(agent => {
     months.forEach(month => {
       const a = monthAgg.get(`${agent}|${month}`);
       if (!a) return; // no activity at all this month — omit
-      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.leadGenNew, a.leadGenExisting, a.leadsConverted]);
+      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.raiserBonus, a.leadGenNew, a.leadGenExisting, a.leadsConverted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
