@@ -2,8 +2,8 @@ name: Update AP Rubric Report
 
 on:
   schedule:
-    # 14:30 UTC = 8:00 PM IST, every Sunday (same schedule as the SP rubric)
-    - cron: '30 14 * * 0'
+    # 14:30 UTC = 8:00 PM IST, every day (same schedule as the SP rubric)
+    - cron: '30 14 * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -32,9 +32,9 @@ jobs:
           git config user.name "ap-rubric-report-bot"
           git config user.email "actions@users.noreply.github.com"
           if git diff --quiet ap_rubric_report.html; then
-            echo "No data changes this week — nothing to commit."
+            echo "No data changes today — nothing to commit."
           else
             git add ap_rubric_report.html
-            git commit -m "Weekly refresh: AP Rubric Report ($(date -u +%Y-%m-%d))"
+            git commit -m "Daily refresh: AP Rubric Report ($(date -u +%Y-%m-%d))"
             git push
           fi
