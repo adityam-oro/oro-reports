@@ -4,8 +4,14 @@
 //
 // Source of truth, verified against the last manually-built Excel export before switching over:
 //   - Cx Met / Visits Raised: Quali-prod.sales_visit (agent_auth_id, status, visit_time)
-//   - Loan completion: sales_visit.lead_id -> Quali-prod.lead.conversion_id -> Oro production loans.id
-//     (lead.conversion_id is non-null exactly when a loan was actually created off that lead)
+//   - Loan completion: sales_visit.lead_id -> Quali-prod.lead.conversion_id -> Oro 2.0 loans.id, but
+//     fixed 2026-08-19 to also require (a) the SP's own raised-status visit happened at or before the
+//     loan's created_at (a bare conversion_id can point at a loan that existed long before this SP's
+//     visit — mainly TAKEOVER cases re-linking to a pre-existing loan, not new business from this
+//     SP's effort) and (b) loan_status not in (OROCORP_REJECTED, BRL_CANCELLED) — a conversion_id
+//     existing doesn't mean the loan wasn't later rejected/cancelled. GOLD_STORED is explicitly still
+//     counted as completed (confirmed with Aditya) — it means fully approved and disbursed, just not
+//     yet closed/renewed, not "still pending".
 //   - Self-sourced leads: Quali-prod.lead_submissions where submitted_by matches the SP's own agent id.
 //     Changed 2026-07-31 (second pass, matching the AP report's identical change): was
 //     Quali-prod.lead.created_by_oro_id, counting every lead flat. Now deduped by lead_id (a lead
@@ -23,7 +29,8 @@
 //   METABASE_URL       e.g. https://oro.metabaseapp.com
 //   METABASE_API_KEY   an API key created in Metabase Admin > Settings > API Keys
 //   QUALI_DB_ID        Metabase database id for "Quali-prod" (sales_visit/lead live here)
-//   ORO2_DB_ID         Metabase database id for "Oro 2.0" (loans lives here — same physical DB as "Oro")
+//   ORO2_DB_ID         Metabase database id for "Oro 2.0" (the actual `loans` table lives here — needed
+//                      as of 2026-08-19 for the loan-completion fix below, was declared but unused before)
 
 const fs = require('fs');
 const path = require('path');
@@ -33,8 +40,8 @@ const METABASE_API_KEY = process.env.METABASE_API_KEY;
 const QUALI_DB_ID = parseInt(process.env.QUALI_DB_ID, 10);
 const ORO2_DB_ID = parseInt(process.env.ORO2_DB_ID, 10);
 
-if (!METABASE_URL || !METABASE_API_KEY || !QUALI_DB_ID) {
-  console.error('Missing required environment variables. Need METABASE_URL, METABASE_API_KEY, QUALI_DB_ID.');
+if (!METABASE_URL || !METABASE_API_KEY || !QUALI_DB_ID || !ORO2_DB_ID) {
+  console.error('Missing required environment variables. Need METABASE_URL, METABASE_API_KEY, QUALI_DB_ID, ORO2_DB_ID.');
   process.exit(1);
 }
 
@@ -50,6 +57,19 @@ async function runQuery(databaseId, query) {
   }
   const json = await res.json();
   if (!json.data || !json.data.rows) throw new Error(`Unexpected Metabase response shape: ${JSON.stringify(json).slice(0, 300)}`);
+  // Metabase's /api/dataset silently truncates native queries at ~2,000 rows and reports it via
+  // data.rows_truncated rather than an error — this is exactly what caused this report to undercount
+  // Cx Met/Visits Raised/Loans Completed for every SP, every week, since it went live (discovered
+  // 2026-08-19): visitQuery used to pull one row per visit (6,000+ rows for the full roster since
+  // January), so it silently lost 60-90% of matching visits to this cap every single run, worsening
+  // every month as more data accumulated behind the same fixed ceiling. All queries here are now
+  // aggregated (GROUP BY agent+day or agent+month) specifically to stay well under 2,000 regardless of
+  // roster size or how far back the date range grows — but if a future edit reintroduces a per-row
+  // query, fail loudly instead of silently building a report on partial data (same guard as the AP
+  // script, added after the AP side hit this exact failure on 2026-08-09).
+  if (json.data.rows_truncated) {
+    throw new Error(`Metabase truncated this query's results (rows_truncated=${json.data.rows_truncated}) — query needs to aggregate further, not just add a LIMIT. Query:\n${query.slice(0, 300)}`);
+  }
   return json.data.rows;
 }
 
@@ -164,18 +184,79 @@ async function main() {
   const agentIds = IDENTITY.map(([id]) => id);
   const agentInList = sqlList(agentIds);
 
-  console.log(`Fetching sales_visit + lead.conversion_id for ${agentIds.length} SPs, ${months[0]} through ${currentMonthKey}...`);
-  const visitQuery = `
-    SELECT sv.agent_auth_id, sv.visit_time::date AS visit_day, sv.status,
-           (l.conversion_id IS NOT NULL) AS has_loan
+  // Fixed 2026-08-19: this used to SELECT one row per visit (agent, day, status, has_loan) and aggregate
+  // in JS — for the full roster since January that's 6,000+ raw rows, which silently blew past
+  // Metabase's ~2,000-row native-query cap every single week (same failure the AP report's visitQuery
+  // hit and fixed on 2026-08-09; this report never got the equivalent fix at the time). The fix is the
+  // same: aggregate in SQL (GROUP BY agent+day) so the row count is bounded by roster size × days, not
+  // by visit volume, and stays small regardless of how much history accumulates.
+  console.log(`Fetching sales_visit for ${agentIds.length} SPs, ${months[0]} through ${currentMonthKey}...`);
+  const visitDayQuery = `
+    SELECT sv.agent_auth_id, sv.visit_time::date AS visit_day,
+      count(*) FILTER (WHERE sv.status IN (${sqlList(CX_MET_STATUSES)})) AS cx_met,
+      count(*) FILTER (WHERE sv.status IN (${sqlList(RAISED_STATUSES)})) AS raised
     FROM sales_visit sv
-    LEFT JOIN lead l ON l.id = sv.lead_id
     WHERE sv.agent_auth_id IN (${agentInList})
       AND sv.visit_time >= '2026-01-01'
       AND sv.status IN (${sqlList(Array.from(new Set([...CX_MET_STATUSES, ...RAISED_STATUSES])))})
+    GROUP BY sv.agent_auth_id, sv.visit_time::date
   `;
-  const visitRows = await runQuery(QUALI_DB_ID, visitQuery);
-  console.log(`  ${visitRows.length} visit rows`);
+  const visitDayRows = await runQuery(QUALI_DB_ID, visitDayQuery);
+  console.log(`  ${visitDayRows.length} agent-day visit rows`);
+
+  // Loan completion, fixed 2026-08-19 after two separate issues were found in the same-day review:
+  //   1. `lead.conversion_id IS NOT NULL` only checks that a loan record exists somewhere for that lead —
+  //      it never checks the loan's own status. For TAKEOVER visits in particular, conversion_id can
+  //      point at a loan that already existed years before this SP ever touched the lead (the takeover
+  //      re-links to the pre-existing loan), which isn't a loan this SP's effort produced. Fixed by
+  //      requiring the qualifying visit to have happened AT OR BEFORE the loan's own created_at — i.e.
+  //      "the loan should have been disbursed post the partner's intervention" (Aditya, 2026-08-19).
+  //   2. The same conversion_id existing includes loans that were later REJECTED or CANCELLED
+  //      (loan_status = OROCORP_REJECTED / BRL_CANCELLED) — ~5% of the total — which obviously shouldn't
+  //      count as a completed loan. GOLD_STORED is explicitly kept IN (confirmed with Aditya 2026-08-19):
+  //      it means the loan was fully approved and disbursed and is simply still active/un-closed, not
+  //      pending — 100% of GOLD_STORED loans checked have both orocorp_approved_at and loan_start_date set.
+  // This needs two queries across two databases (Quali-prod has sales_visit/lead; Oro 2.0 has the actual
+  // `loans` table with its status/created_at) since Metabase can't join across databases in one query.
+  console.log('Fetching raised-visit → lead.conversion_id pairs (Quali-prod), aggregated per agent+loan...');
+  const raisedConversionQuery = `
+    SELECT sv.agent_auth_id, l.conversion_id, min(sv.visit_time)::date AS earliest_raised_visit_date
+    FROM sales_visit sv
+    JOIN lead l ON l.id = sv.lead_id
+    WHERE sv.agent_auth_id IN (${agentInList})
+      AND sv.visit_time >= '2026-01-01'
+      AND sv.status IN (${sqlList(RAISED_STATUSES)})
+      AND l.conversion_id IS NOT NULL
+    GROUP BY sv.agent_auth_id, l.conversion_id
+  `;
+  const raisedConversionRows = await runQuery(QUALI_DB_ID, raisedConversionQuery);
+  console.log(`  ${raisedConversionRows.length} agent-loan pairs`);
+
+  const EXCLUDED_LOAN_STATUSES = ['OROCORP_REJECTED', 'BRL_CANCELLED'];
+  let correctedLoansByAgentMonth = new Map();
+  if (raisedConversionRows.length) {
+    const conversionIds = [...new Set(raisedConversionRows.map(([, convId]) => convId))];
+    console.log(`Fetching loan status/created_at (Oro 2.0) for ${conversionIds.length} distinct loans...`);
+    const loanStatusQuery = `
+      SELECT id AS conversion_id, created_at::date AS loan_created_date, loan_status
+      FROM loans
+      WHERE id IN (${conversionIds.join(',')})
+    `;
+    const loanStatusRows = await runQuery(ORO2_DB_ID, loanStatusQuery);
+    console.log(`  ${loanStatusRows.length} loan records`);
+    const loanById = new Map(loanStatusRows.map(([id, created, status]) => [id, { created, status }]));
+
+    raisedConversionRows.forEach(([agent, convId, visitDate]) => {
+      const loan = loanById.get(convId);
+      if (!loan) return; // loan id referenced but not found — shouldn't happen, skip defensively
+      if (EXCLUDED_LOAN_STATUSES.includes(loan.status)) return; // rejected/cancelled — never completed
+      if (new Date(visitDate) > new Date(loan.created)) return; // loan predates this SP's visit — stale/pre-existing link, not this SP's effort
+      const month = visitDate.slice(0, 7);
+      const key = `${agent}|${month}`;
+      correctedLoansByAgentMonth.set(key, (correctedLoansByAgentMonth.get(key) || 0) + 1);
+    });
+  }
+  console.log(`  ${correctedLoansByAgentMonth.size} agent-month combos with a corrected loan-completion count`);
 
   // 2026-08-11: also tracks whether each distinct submitted lead ever converted to a loan
   // (lead.conversion_id set) — separate from Cx Met/Raised, which measure visit outcomes, not lead
@@ -204,19 +285,10 @@ async function main() {
   const leadRows = await runQuery(QUALI_DB_ID, leadQuery);
   console.log(`  ${leadRows.length} agent-day distinct-lead rows`);
 
-  // agent|day -> { cxMet, raised, loans } from visit-level rows.
+  // agent|day -> { cxMet, raised } — now aggregated in SQL (see visitDayQuery above), no JS-side counting needed.
   const dayStats = new Map();
-  const CX_MET_SET = new Set(CX_MET_STATUSES);
-  const RAISED_SET = new Set(RAISED_STATUSES);
-  visitRows.forEach(([agent, day, status, hasLoan]) => {
-    const key = `${agent}|${day}`;
-    const cur = dayStats.get(key) || { cxMet: 0, raised: 0, loans: 0 };
-    if (CX_MET_SET.has(status)) cur.cxMet++;
-    if (RAISED_SET.has(status)) {
-      cur.raised++;
-      if (hasLoan) cur.loans++;
-    }
-    dayStats.set(key, cur);
+  visitDayRows.forEach(([agent, day, cxMet, raised]) => {
+    dayStats.set(`${agent}|${day}`, { cxMet: Number(cxMet), raised: Number(raised) });
   });
 
   // agent|day -> { newLeads, existingLeads, leadsSubmitted, leadsConverted } (distinct leads, deduped by lead_id above).
@@ -228,7 +300,9 @@ async function main() {
   // Union of all agent|day keys that have either visit or lead activity.
   const allDayKeys = new Set([...dayStats.keys(), ...leadsByDay.keys()]);
 
-  // agent|month -> { newLeads, existingLeads, cxMet, raised, loans, capped }
+  // agent|month -> { newLeads, existingLeads, cxMet, raised, capped } — loans is handled separately
+  // below via correctedLoansByAgentMonth (already at month granularity, not day, since the loan-vs-visit
+  // timing check only needs the visit's day, not a daily bucket to sum into).
   const monthAgg = new Map();
   allDayKeys.forEach(key => {
     const sep = key.lastIndexOf('|');
@@ -236,7 +310,7 @@ async function main() {
     const day = key.slice(sep + 1); // YYYY-MM-DD
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
-    const stats = dayStats.get(key) || { cxMet: 0, raised: 0, loans: 0 };
+    const stats = dayStats.get(key) || { cxMet: 0, raised: 0 };
     const { newLeads, existingLeads, leadsSubmitted, leadsConverted } = leadsByDay.get(key) || { newLeads: 0, existingLeads: 0, leadsSubmitted: 0, leadsConverted: 0 };
     // Existing (never-accepted, i.e. resubmitted) leads count at half weight toward the effort formula —
     // same accept/reject-weighted logic as the AP report's Lead Generation, so repeatedly resubmitting an
@@ -246,12 +320,11 @@ async function main() {
     const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 6);
 
     const mkey = `${agent}|${month}`;
-    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, loans: 0, capped: 0, leadsSubmitted: 0, leadsConverted: 0 };
+    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, capped: 0, leadsSubmitted: 0, leadsConverted: 0 };
     cur.newLeads += newLeads;
     cur.existingLeads += existingLeads;
     cur.cxMet += stats.cxMet;
     cur.raised += stats.raised;
-    cur.loans += stats.loans;
     cur.capped += cappedUnit;
     cur.leadsSubmitted += leadsSubmitted;
     cur.leadsConverted += leadsConverted;
@@ -263,11 +336,23 @@ async function main() {
     months.forEach(month => {
       const mkey = `${agent}|${month}`;
       const a = monthAgg.get(mkey);
-      if (!a) return; // no activity at all this month — omit, same convention as the original data
-      RAW.push([agent, month, a.newLeads, a.existingLeads, a.cxMet, a.raised, a.loans, Math.round(a.capped * 10) / 10, a.leadsSubmitted, a.leadsConverted]);
+      const loans = correctedLoansByAgentMonth.get(mkey) || 0;
+      if (!a && !loans) return; // no activity at all this month — omit, same convention as the original data
+      const row = a || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, capped: 0, leadsSubmitted: 0, leadsConverted: 0 };
+      RAW.push([agent, month, row.newLeads, row.existingLeads, row.cxMet, row.raised, loans, Math.round(row.capped * 10) / 10, row.leadsSubmitted, row.leadsConverted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
+
+  // Second, independent guard against the truncation failure mode (belt-and-braces alongside the
+  // rows_truncated check in runQuery, same pattern as the AP script) — if some future edit undercounts
+  // without Metabase ever reporting truncation, an implausible drop in roster-wide coverage should still
+  // block the publish rather than silently overwrite a good report with a broken one.
+  const agentsWithAnyActivity = new Set(RAW.map(r => r[0])).size;
+  const coverage = agentsWithAnyActivity / agentIds.length;
+  if (coverage < 0.5) {
+    throw new Error(`Only ${agentsWithAnyActivity} of ${agentIds.length} SPs (${(coverage * 100).toFixed(0)}%) have any recorded activity across ${months[0]}–${currentMonthKey} — refusing to publish. Check runQuery's rows_truncated guard and whether any query here reverted to an unaggregated (per-row) form.`);
+  }
 
   const monthCheckboxes = months.map(key => {
     const checked = key === currentMonthKey ? ' checked' : '';
@@ -275,7 +360,7 @@ async function main() {
   }).join('\n');
 
   const refreshedAt = ist.toISOString().slice(0, 16).replace('T', ' ') + ' IST';
-  const statusLine = `Quali-prod.sales_visit ⋈ lead ⋈ loans (live) · ${IDENTITY.filter(([, , c]) => c !== 'Chennai').length} active, Tier-1 SPs (Bengaluru/Hyderabad/Pune, no tenure minimum)`;
+  const statusLine = `Quali-prod.sales_visit ⋈ lead ⋈ Oro 2.0 loans (live, corrected) · ${IDENTITY.filter(([, , c]) => c !== 'Chennai').length} active, Tier-1 SPs (Bengaluru/Hyderabad/Pune, no tenure minimum)`;
 
   let template = fs.readFileSync(path.join(__dirname, 'sp-rubric-template.html'), 'utf8');
   template = template
