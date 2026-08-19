@@ -169,7 +169,7 @@ __MONTH_CHECKBOXES__
         <tr><td>Visit raised</td><td>40%+ of the customers you meet (Cx Met) move forward.</td></tr>
         <tr><td>Loan completion</td><td>80%+ of the ones that moved forward become an actual loan.</td></tr>
         <tr><td>Overall quality score</td><td>Blend of the two above. You need <strong>80%+</strong> to clear it.</td></tr>
-        <tr><td>If visit raised is under 35%</td><td>You're marked <strong>At risk</strong>.</td></tr>
+        <tr><td>If visit raised is under 30%</td><td>You're marked <strong>At risk</strong>.</td></tr>
       </tbody>
     </table>
   </div>
@@ -193,7 +193,7 @@ __MONTH_CHECKBOXES__
         <tr><td><span class="chip g">Star</span></td><td>Good (50%+)</td><td>Good (80%+), leads convert</td></tr>
         <tr><td><span class="chip w">Coaching</span></td><td>Good (50%+)</td><td>Short, or leads aren't converting</td></tr>
         <tr><td><span class="chip n">Push volume</span></td><td>Short</td><td>Good (80%+)</td></tr>
-        <tr><td><span class="chip r">At risk</span></td><td>Short</td><td>Short (or moved-forward rate under 35%)</td></tr>
+        <tr><td><span class="chip r">At risk</span></td><td>Short</td><td>Short (or moved-forward rate under 30%)</td></tr>
       </tbody>
     </table>
   </div>
@@ -252,9 +252,9 @@ __MONTH_CHECKBOXES__
   <div class="figwrap">
     <div class="plot" id="plot"></div>
   </div>
-  <p class="caption">Each dot is one SP — totals summed across the selected months, then rescored, same as the leaderboard below (so an SP appears in exactly one quadrant, never split across quadrants when multiple months are selected). Hover a dot for the SP's name. The four boxes are always an even 50/50 grid — a dot's box is its actual assigned zone (which already accounts for the effort bar, the 80% quality bar, the 35% visit-raised floor, and the lead-conversion override below), not a direct plot of raw effort/quality against those thresholds. Position within a box is ranked by that SP's real effort (vertical) and quality (horizontal) among others in the same zone, so relative standing inside a quadrant still means something. A visit-raised floor overrides the quadrant: any SP with visit-raised % below 35% is classified At Risk regardless of effort or quality. A lead-quality override also applies: any SP with effort ≥50% whose self-sourced leads convert to loans at under 2% is classified Coaching even if their visit-based quality clears 80%, since the leads behind their effort score aren't good ones.</p>
+  <p class="caption">Each dot is one SP — totals summed across the selected months, then rescored, same as the leaderboard below (so an SP appears in exactly one quadrant, never split across quadrants when multiple months are selected). Hover a dot for the SP's name. The four boxes are always an even 50/50 grid — a dot's box is its actual assigned zone (which already accounts for the effort bar, the 80% quality bar, the 30% visit-raised floor, and the lead-conversion override below), not a direct plot of raw effort/quality against those thresholds. Position within a box is ranked by that SP's real effort (vertical) and quality (horizontal) among others in the same zone, so relative standing inside a quadrant still means something. A visit-raised floor overrides the quadrant: any SP with visit-raised % below 30% is classified At Risk regardless of effort or quality. A lead-quality override also applies: any SP with effort ≥50% whose self-sourced leads convert to loans at under 2% is classified Coaching even if their visit-based quality clears 80%, since the leads behind their effort score aren't good ones.</p>
   <div class="legend">
-    <span><i class="dotkey r"></i>At risk — below both, or visit-raised % under 35% floor</span>
+    <span><i class="dotkey r"></i>At risk — below both, or visit-raised % under 30% floor</span>
     <span><i class="dotkey w"></i>Coaching — effort ok, quality short (or leads aren't converting)</span>
     <span><i class="dotkey n"></i>Push volume — quality ok, effort short</span>
     <span><i class="dotkey g"></i>Star — clears both</span>
@@ -343,9 +343,9 @@ const CITIES = ['All','Bengaluru','Hyderabad','Pune'];
 let activeCity = 'All';
 
 const QUALITY_BAR = 80;
-const RAISE_FLOOR = 35;
+const RAISE_FLOOR = 30; // lowered from 35 to 30, 2026-08-19, per Aditya's decision
 const LEAD_CONV_FLOOR = 2;
-// raisePct<35 -> At risk regardless of effort/quality (a raise rate this low means the effort score
+// raisePct<30 -> At risk regardless of effort/quality (a raise rate this low means the effort score
 // isn't reflecting real customer engagement). Otherwise, effort>=50 with lead->loan conversion under 2%
 // is forced to Coaching even if visit-based quality clears 80% — the leads behind that effort score
 // aren't converting, so "high effort" isn't backed by good lead sourcing.
