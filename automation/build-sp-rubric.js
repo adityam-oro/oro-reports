@@ -184,25 +184,75 @@ async function main() {
   const agentIds = IDENTITY.map(([id]) => id);
   const agentInList = sqlList(agentIds);
 
-  // Fixed 2026-08-19: this used to SELECT one row per visit (agent, day, status, has_loan) and aggregate
-  // in JS — for the full roster since January that's 6,000+ raw rows, which silently blew past
-  // Metabase's ~2,000-row native-query cap every single week (same failure the AP report's visitQuery
-  // hit and fixed on 2026-08-09; this report never got the equivalent fix at the time). The fix is the
-  // same: aggregate in SQL (GROUP BY agent+day) so the row count is bounded by roster size × days, not
-  // by visit volume, and stays small regardless of how much history accumulates.
-  console.log(`Fetching sales_visit for ${agentIds.length} SPs, ${months[0]} through ${currentMonthKey}...`);
-  const visitDayQuery = `
-    SELECT sv.agent_auth_id, sv.visit_time::date AS visit_day,
-      count(*) FILTER (WHERE sv.status IN (${sqlList(CX_MET_STATUSES)})) AS cx_met,
-      count(*) FILTER (WHERE sv.status IN (${sqlList(RAISED_STATUSES)})) AS raised
-    FROM sales_visit sv
-    WHERE sv.agent_auth_id IN (${agentInList})
-      AND sv.visit_time >= '2026-01-01'
-      AND sv.status IN (${sqlList(Array.from(new Set([...CX_MET_STATUSES, ...RAISED_STATUSES])))})
-    GROUP BY sv.agent_auth_id, sv.visit_time::date
+  // Fixed 2026-08-19, take two: the first attempt at this fix (GROUP BY agent+day as the query's own
+  // final output) still returned rows_truncated=2000 in production — grouping by day is still too fine
+  // a grain when it's the OUTERMOST result set (59 agents × ~240 days can exceed 2,000 combinations on
+  // its own, independent of visit volume). The actual working pattern (verified against live data before
+  // this went out) is to keep day-level detail INTERNAL to a CTE only for the effort-cap math, and never
+  // let day-grain rows escape as the query's final SELECT — the outermost GROUP BY here is agent+month,
+  // which is what stays safely under the cap regardless of roster size or how far back the range grows.
+  // This single query now also folds in what used to be a separate lead_submissions query (leadQuery),
+  // since both need the same per-day join to compute the capped effort score correctly.
+  console.log(`Fetching sales_visit + lead_submissions for ${agentIds.length} SPs, ${months[0]} through ${currentMonthKey}...`);
+  const capQuery = `
+    WITH visit_day AS (
+      SELECT sv.agent_auth_id, sv.visit_time::date AS day,
+        count(*) FILTER (WHERE sv.status IN (${sqlList(CX_MET_STATUSES)})) AS cx_met,
+        count(*) FILTER (WHERE sv.status IN (${sqlList(RAISED_STATUSES)})) AS raised
+      FROM sales_visit sv
+      WHERE sv.agent_auth_id IN (${agentInList})
+        AND sv.visit_time >= '2026-01-01'
+        AND sv.status IN (${sqlList(Array.from(new Set([...CX_MET_STATUSES, ...RAISED_STATUSES])))})
+      GROUP BY sv.agent_auth_id, sv.visit_time::date
+    ),
+    per_lead AS (
+      SELECT ls.submitted_by::text AS agent_auth_id, ls.lead_id, min(ls.submitted_at)::date AS day,
+        bool_or(ls.acceptance_status = 'YES') AS approved,
+        bool_or(l.conversion_id IS NOT NULL) AS converted
+      FROM lead_submissions ls
+      LEFT JOIN lead l ON l.id = ls.lead_id
+      WHERE ls.submitted_by::text IN (${agentInList}) AND ls.submitted_at >= '2026-01-01'
+      GROUP BY ls.submitted_by, ls.lead_id
+    ),
+    lead_day AS (
+      SELECT agent_auth_id, day,
+        count(*) FILTER (WHERE approved) AS new_leads,
+        count(*) FILTER (WHERE NOT approved) AS existing_leads,
+        count(*) AS leads_submitted,
+        count(*) FILTER (WHERE converted) AS leads_converted
+      FROM per_lead
+      GROUP BY agent_auth_id, day
+    ),
+    all_days AS (
+      SELECT agent_auth_id, day FROM visit_day
+      UNION
+      SELECT agent_auth_id, day FROM lead_day
+    ),
+    combined AS (
+      SELECT ad.agent_auth_id, ad.day,
+        COALESCE(v.cx_met, 0) AS cx_met,
+        COALESCE(v.raised, 0) AS raised,
+        COALESCE(l.new_leads, 0) AS new_leads,
+        COALESCE(l.existing_leads, 0) AS existing_leads,
+        COALESCE(l.leads_submitted, 0) AS leads_submitted,
+        COALESCE(l.leads_converted, 0) AS leads_converted
+      FROM all_days ad
+      LEFT JOIN visit_day v ON v.agent_auth_id = ad.agent_auth_id AND v.day = ad.day
+      LEFT JOIN lead_day l ON l.agent_auth_id = ad.agent_auth_id AND l.day = ad.day
+    )
+    SELECT agent_auth_id, to_char(day, 'YYYY-MM') AS month,
+      SUM(cx_met) AS cx_met,
+      SUM(raised) AS raised,
+      SUM(new_leads) AS new_leads,
+      SUM(existing_leads) AS existing_leads,
+      SUM(leads_submitted) AS leads_submitted,
+      SUM(leads_converted) AS leads_converted,
+      SUM(LEAST(cx_met + (new_leads + existing_leads * 0.5) / 2.0, 6)) AS capped
+    FROM combined
+    GROUP BY agent_auth_id, month
   `;
-  const visitDayRows = await runQuery(QUALI_DB_ID, visitDayQuery);
-  console.log(`  ${visitDayRows.length} agent-day visit rows`);
+  const capRows = await runQuery(QUALI_DB_ID, capQuery);
+  console.log(`  ${capRows.length} agent-month rows`);
 
   // Loan completion, fixed 2026-08-19 after two separate issues were found in the same-day review:
   //   1. `lead.conversion_id IS NOT NULL` only checks that a loan record exists somewhere for that lead —
@@ -258,77 +308,20 @@ async function main() {
   }
   console.log(`  ${correctedLoansByAgentMonth.size} agent-month combos with a corrected loan-completion count`);
 
-  // 2026-08-11: also tracks whether each distinct submitted lead ever converted to a loan
-  // (lead.conversion_id set) — separate from Cx Met/Raised, which measure visit outcomes, not lead
-  // quality. A high-effort SP whose leads rarely convert gets flagged in Coaching (see LEAD_CONV_FLOOR
-  // below) even if their per-visit quality numbers look fine, since the leads driving their effort
-  // score turned out to be mostly low-value.
-  console.log('Fetching self-sourced lead_submissions (day-level, for the daily effort cap + lead->loan conversion)...');
-  const leadQuery = `
-    WITH per_lead AS (
-      SELECT ls.submitted_by, ls.lead_id, min(ls.submitted_at)::date AS day,
-        bool_or(ls.acceptance_status = 'YES') AS approved,
-        bool_or(l.conversion_id IS NOT NULL) AS converted
-      FROM lead_submissions ls
-      LEFT JOIN lead l ON l.id = ls.lead_id
-      WHERE ls.submitted_by IN (${agentInList}) AND ls.submitted_at >= '2026-01-01'
-      GROUP BY ls.submitted_by, ls.lead_id
-    )
-    SELECT submitted_by, day,
-      count(*) FILTER (WHERE approved) AS new_leads,
-      count(*) FILTER (WHERE NOT approved) AS existing_leads,
-      count(*) AS leads_submitted,
-      count(*) FILTER (WHERE converted) AS leads_converted
-    FROM per_lead
-    GROUP BY submitted_by, day
-  `;
-  const leadRows = await runQuery(QUALI_DB_ID, leadQuery);
-  console.log(`  ${leadRows.length} agent-day distinct-lead rows`);
-
-  // agent|day -> { cxMet, raised } — now aggregated in SQL (see visitDayQuery above), no JS-side counting needed.
-  const dayStats = new Map();
-  visitDayRows.forEach(([agent, day, cxMet, raised]) => {
-    dayStats.set(`${agent}|${day}`, { cxMet: Number(cxMet), raised: Number(raised) });
-  });
-
-  // agent|day -> { newLeads, existingLeads, leadsSubmitted, leadsConverted } (distinct leads, deduped by lead_id above).
-  const leadsByDay = new Map();
-  leadRows.forEach(([agent, day, newLeads, existingLeads, leadsSubmitted, leadsConverted]) => {
-    leadsByDay.set(`${agent}|${day}`, { newLeads: Number(newLeads), existingLeads: Number(existingLeads), leadsSubmitted: Number(leadsSubmitted), leadsConverted: Number(leadsConverted) });
-  });
-
-  // Union of all agent|day keys that have either visit or lead activity.
-  const allDayKeys = new Set([...dayStats.keys(), ...leadsByDay.keys()]);
-
-  // agent|month -> { newLeads, existingLeads, cxMet, raised, capped } — loans is handled separately
-  // below via correctedLoansByAgentMonth (already at month granularity, not day, since the loan-vs-visit
-  // timing check only needs the visit's day, not a daily bucket to sum into).
+  // agent|month -> { newLeads, existingLeads, cxMet, raised, capped, leadsSubmitted, leadsConverted } —
+  // capRows is already aggregated to month grain in SQL (see capQuery above; the daily cap math and the
+  // day-level lead/visit join both happen inside the query, never as day-grain rows in JS). loans is
+  // handled separately via correctedLoansByAgentMonth (the loan-vs-visit timing check only needs the
+  // visit's own day, not a daily bucket to sum into, so it was never part of the truncation risk here).
   const monthAgg = new Map();
-  allDayKeys.forEach(key => {
-    const sep = key.lastIndexOf('|');
-    const agent = key.slice(0, sep);
-    const day = key.slice(sep + 1); // YYYY-MM-DD
-    const month = day.slice(0, 7);
+  capRows.forEach(([agent, month, cxMet, raised, newLeads, existingLeads, leadsSubmitted, leadsConverted, capped]) => {
     if (!months.includes(month)) return;
-    const stats = dayStats.get(key) || { cxMet: 0, raised: 0 };
-    const { newLeads, existingLeads, leadsSubmitted, leadsConverted } = leadsByDay.get(key) || { newLeads: 0, existingLeads: 0, leadsSubmitted: 0, leadsConverted: 0 };
-    // Existing (never-accepted, i.e. resubmitted) leads count at half weight toward the effort formula —
-    // same accept/reject-weighted logic as the AP report's Lead Generation, so repeatedly resubmitting an
-    // already-known lead can't inflate a day's effort the way a genuinely new lead does.
-    const weightedLeads = newLeads + existingLeads * 0.5;
-    // Daily target restored to 6 units/day 2026-08-11 (reverted from the 5/day trial), per Aditya's decision.
-    const cappedUnit = Math.min(stats.cxMet + weightedLeads / 2, 6);
-
-    const mkey = `${agent}|${month}`;
-    const cur = monthAgg.get(mkey) || { newLeads: 0, existingLeads: 0, cxMet: 0, raised: 0, capped: 0, leadsSubmitted: 0, leadsConverted: 0 };
-    cur.newLeads += newLeads;
-    cur.existingLeads += existingLeads;
-    cur.cxMet += stats.cxMet;
-    cur.raised += stats.raised;
-    cur.capped += cappedUnit;
-    cur.leadsSubmitted += leadsSubmitted;
-    cur.leadsConverted += leadsConverted;
-    monthAgg.set(mkey, cur);
+    monthAgg.set(`${agent}|${month}`, {
+      newLeads: Number(newLeads), existingLeads: Number(existingLeads),
+      cxMet: Number(cxMet), raised: Number(raised),
+      capped: Number(capped),
+      leadsSubmitted: Number(leadsSubmitted), leadsConverted: Number(leadsConverted),
+    });
   });
 
   const RAW = [];
