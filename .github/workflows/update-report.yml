@@ -37,5 +37,13 @@ jobs:
           else
             git add co_walkins_report.html
             git commit -m "Auto-refresh CO Walk-ins Report ($(date -u +%Y-%m-%d))"
-            git push
+            for i in 1 2 3 4 5; do
+              if git push; then
+                break
+              fi
+              echo "Push rejected (likely a race with another report's push) — rebasing and retrying ($i/5)..."
+              git fetch origin main
+              git rebase origin/main
+              sleep $((RANDOM % 5 + 1))
+            done
           fi
