@@ -299,6 +299,15 @@ async function main() {
   }
 
   console.log(`Fetching visits (Oro 2.0) for ${agentIds.length} APs, ${months[0]} through ${currentMonthKey}...`);
+  // Fixed 2026-08-24: the release_cnt filter below read `release_type NOT IN (...)`, which is NULL-unsafe —
+  // in SQL, NULL NOT IN (...) is NULL, not TRUE, so every completed release with no release_type on the row
+  // was silently dropped rather than counted as an ordinary (non-private-sale) release. That was harmless
+  // while the column was being populated, but the org stopped writing release_type in July 2026 at the same
+  // time it adopted the RELEASE_VISIT_COMPLETED status: org-wide, release_type is set on 1,374 of 1,374
+  // completed GR visits in June, 512 of 1,278 in July, and 77 of 1,277 in August. Completed GR visits
+  // themselves never dipped — a flat ~1,300/month all year — so the "collapse" was entirely an artefact of
+  // this filter. It cost the roster ~94% of its August release points and ~60% of July's. NULL release_type
+  // now reads as an ordinary release, which is right: private sale is the tagged exception, not the default.
   // Release/Private sale are identified by visit_type='GR', NOT by visit_status='RELEASE_VISIT_COMPLETED'
   // or release_type (verified 2026-07-28 against the org-wide ~1,200-1,600 releases/month baseline):
   // release_type is populated on barely 2% of real completions, and RELEASE_VISIT_COMPLETED itself was
@@ -312,7 +321,7 @@ async function main() {
   // the cap regardless of roster size or how far back the date range grows.
   const visitQuery = `
     SELECT agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month,
-      count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND release_type NOT IN ('PRIVATE_SALE','PART_PRIVATE_SALE')) AS release_cnt,
+      count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND (release_type IS NULL OR release_type NOT IN ('PRIVATE_SALE','PART_PRIVATE_SALE'))) AS release_cnt,
       count(*) FILTER (WHERE visit_type='GR' AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED') AND release_type IN ('PRIVATE_SALE','PART_PRIVATE_SALE')) AS private_sale_cnt,
       count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='FRESH_LOAN') AS fresh_loan_cnt,
       count(*) FILTER (WHERE visit_status='VISIT_COMPLETED' AND loan_subtype='TAKEOVER') AS takeover_cnt,
