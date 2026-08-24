@@ -161,12 +161,13 @@ __MONTH_CHECKBOXES__
         <tr><td>Private sale completed</td><td class="num">20</td></tr>
         <tr><td>Gold sale (GBS) completed</td><td class="num">30</td></tr>
         <tr><td>Visit raised (customer cancelled, not completed — only if you'd already reached the customer)</td><td class="num">15</td></tr>
-        <tr><td>Raiser bonus (you sourced the visit, a different AP completed it)</td><td class="num">30</td></tr>
+        <tr><td>Sourcing &mdash; you brought the customer in, a different AP completed the visit</td><td class="num">30</td></tr>
+        <tr><td>Sourcing &mdash; you brought the customer in and completed the visit yourself</td><td class="num">higher of 30 or the completion above</td></tr>
       </tbody>
     </table>
   </div>
   <p class="caption">Goal: 100 points a day. We add up your points for the months picked above, divide by your working days, and cap it at 100/day so one great month can't hide a bad one. Bands: below 60 At risk, 60–75 Needs improvement, 75–95 Good, above 95 Star. Covers Chennai, Bengaluru, Hyderabad, and Pune.</p>
-  <p class="caption">If you raise/source a visit yourself (a referral or self-sourced customer) and someone else conducts and completes it, you get a flat 30-point raiser bonus, on top of whatever they earn for the completion — this applies no matter the loan type. If you raise a visit and it's cancelled before it completes, you get nothing for the raise. If you raise a visit AND complete it yourself, you just get the normal completion points above — the raiser bonus doesn't stack with your own completion.</p>
+  <p class="caption">You have sourced a customer if you submitted their lead <em>or</em> you raised/booked their visit &mdash; both count, for new and existing customers alike. If the loan then completes and a <strong>different</strong> AP conducted the visit, you get a flat 30 points for the sourcing, whatever the loan type, and they separately get their own completion points. If you sourced it <strong>and</strong> completed it yourself, you get whichever is higher &mdash; the 30 for sourcing, or the completion points &mdash; never both; in practice that only lifts a Release or Private sale you sourced yourself, from 20 to 30. If a customer you sourced never completes a loan, the sourcing earns nothing.</p>
 
   <div class="tbox">
     <table>
@@ -282,7 +283,7 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Visit Raised</th><th>Raiser bonus</th><th>New leads</th><th>Existing leads</th><th>Lead conv %</th><th>Lead bonus</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Visit Raised</th><th>Sourced &rarr; other AP</th><th>Sourced &rarr; self</th><th>New leads</th><th>Existing leads</th><th>Lead conv %</th><th>Lead bonus</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
@@ -298,7 +299,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved in Chennai/Bengaluru/Hyderabad/Pune (Vijayawada/Guntur/Warangal/Karimnagar dropped 2026-08-05 — those APs did a hybrid appraisal+sales-visit role this report no longer tracks); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Sourcing counts a customer once, credited to the first partner who either submitted the lead or booked the visit, and is dated by the month the loan's visit completed &mdash; not by when the customer first entered the system, so customers already on file count the same as brand-new ones. Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved in Chennai/Bengaluru/Hyderabad/Pune (Vijayawada/Guntur/Warangal/Karimnagar dropped 2026-08-05 — those APs did a hybrid appraisal+sales-visit role this report no longer tracks); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -317,7 +318,7 @@ __WD_DATA__
 __MONTH_LABEL_DATA__
 </script>
 <script>
-const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,raiserBonus,leadGenNew,leadGenExisting,leadsConverted])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,raiserBonus,leadGenNew,leadGenExisting,leadsConverted}));
+const RAW = JSON.parse(document.getElementById('raw-data').textContent).map(([agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,sourcedOther,sourcedSelf,sourcedSelfPts,leadGenNew,leadGenExisting,leadsConverted])=>({agent,month,freshLoan,takeover,release,privateSale,goldSale,raised,sourcedOther,sourcedSelf,sourcedSelfPts,leadGenNew,leadGenExisting,leadsConverted}));
 const IDENTITY = JSON.parse(document.getElementById('identity-data').textContent);
 const NAME_BY_ID = new Map(IDENTITY.map(([id,name])=>[id,name]));
 const CITY_MAP = new Map(IDENTITY.map(([id,,city])=>[id,city]));
@@ -344,12 +345,14 @@ let activeCity = 'All';
 
 // Lead Gen (leadGenNew/leadGenExisting) is intentionally absent here — removed from the core 100pt/day
 // score 2026-08-05. It's tracked separately below and only feeds the Lead Bonus, not totalPoints.
-const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, raiserBonus: 30 };
+const POINTS = { freshLoan: 30, takeover: 50, release: 20, privateSale: 20, goldSale: 30, raised: 15, sourcedOther: 30 };
 
 function totalPoints(r){
+  // sourcedSelfPts is already points, not a count: where an AP both sourced and completed the same loan
+  // they take the higher of the two, so this is only the top-up from the completion's own value up to 30.
   return r.freshLoan*POINTS.freshLoan + r.takeover*POINTS.takeover + r.release*POINTS.release
        + r.privateSale*POINTS.privateSale + r.goldSale*POINTS.goldSale
-       + r.raised*POINTS.raised + r.raiserBonus*POINTS.raiserBonus;
+       + r.raised*POINTS.raised + r.sourcedOther*POINTS.sourcedOther + r.sourcedSelfPts;
 }
 
 // Lead Bonus: +10 pts added AFTER the core cap (can push a final score above 100) if, over the selected
@@ -423,9 +426,9 @@ document.querySelectorAll('#fPage .citytab').forEach(btn => {
 function aggregateAgents(rows, refDate, monthsInWindow, cityFilter){
   const byAgent = new Map();
   rows.forEach(r => {
-    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, raiserBonus:0, leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0};
+    const cur = byAgent.get(r.agent) || {agent:r.agent, city:r.city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, sourcedOther:0, sourcedSelf:0, sourcedSelfPts:0, leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0};
     cur.freshLoan+=r.freshLoan; cur.takeover+=r.takeover; cur.release+=r.release; cur.privateSale+=r.privateSale;
-    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.raiserBonus+=r.raiserBonus; cur.leadGenNew+=r.leadGenNew; cur.leadGenExisting+=r.leadGenExisting; cur.leadsConverted+=r.leadsConverted;
+    cur.goldSale+=r.goldSale; cur.raised+=r.raised; cur.sourcedOther+=r.sourcedOther; cur.sourcedSelf+=r.sourcedSelf; cur.sourcedSelfPts+=r.sourcedSelfPts; cur.leadGenNew+=r.leadGenNew; cur.leadGenExisting+=r.leadGenExisting; cur.leadsConverted+=r.leadsConverted;
     cur.rawPts += r.rawPts; cur.cappedPts += r.cappedPts; cur.wd += (WD[r.month] && WD[r.month][r.city]) || 0;
     byAgent.set(r.agent, cur);
   });
@@ -449,7 +452,7 @@ function aggregateAgents(rows, refDate, monthsInWindow, cityFilter){
   const backfilled = IDENTITY
     .filter(([id,,city]) => !present.has(id) && (cityFilter === undefined || cityFilter === 'All' || city === cityFilter) && tenureDays(id, refDate) < 90)
     .map(([id,,city]) => ({
-      agent:id, city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, raiserBonus:0,
+      agent:id, city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, sourcedOther:0, sourcedSelf:0, sourcedSelfPts:0,
       leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0,
       corePtsPerDay:0, leadBonus:zeroLeadBonus, ptsPerDay:0, bandKey:'r', heldOut:true,
     }));
@@ -642,7 +645,8 @@ function render(){
       <td class="num">${r.privateSale}</td>
       <td class="num">${r.goldSale}</td>
       <td class="num">${r.raised}</td>
-      <td class="num">${r.raiserBonus}</td>
+      <td class="num">${r.sourcedOther}</td>
+      <td class="num">${r.sourcedSelf}</td>
       <td class="num">${r.leadGenNew}</td>
       <td class="num">${r.leadGenExisting}</td>
       <td class="num">${r.leadBonus.conversionPct.toFixed(1)}%</td>

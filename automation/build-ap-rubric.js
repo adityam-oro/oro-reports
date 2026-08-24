@@ -46,19 +46,31 @@
 //                                       existed in the system before the rejected submission, confirmed via
 //                                       lead.created_at predating the submission and lead.duplicate_updated_at
 //                                       being set).
-//   Raiser bonus (self-sourced/referral) 30 pts flat, added 2026-08-14 per the user's clarified visit-raising
-//                                       flow: an AP can raise/source a visit (Quali-prod lead.appointment_booked_by_id)
-//                                       that a DIFFERENT AP ends up conducting (visits.agent_auth_id via
-//                                       lead.conversion_id -> visits.loan_id). If that loan's visit completes
-//                                       (any type — Fresh/Takeover/Release/GBS all pay the same flat 30 to the
-//                                       raiser), the raiser earns 30 pts regardless of what the completer earns
-//                                       for their own completion. If the SAME AP raised and completed it, no
-//                                       bonus is added — they already score full completion points, and adding
-//                                       this on top would double-count. If the loan never completes, the raiser
-//                                       gets nothing (no partial-credit bucket for the raiser — that's the
-//                                       assigned/conducting AP's "Visit raised" 15-pt bucket below, which is a
-//                                       separate concept keyed to whoever actually attempted the visit, not who
-//                                       sourced it).
+//   Sourcing (self-sourced / referral / submitted lead) — rewritten 2026-08-24. An AP "sources" a
+//                                       customer in either of two ways, and BOTH count:
+//                                         (a) they submit the lead      Quali-prod lead_submissions.submitted_by
+//                                         (b) they raise/book the visit Quali-prod lead.appointment_booked_by_id
+//                                       Deduped to the earliest sourcing AP per converted loan. The loan is then
+//                                       looked up in Oro 2.0 (visits.loan_id = lead.conversion_id) to find whether
+//                                       it completed, when, and who completed it:
+//                                         Sourced, another AP completed  30 pts flat to the sourcing AP, whatever
+//                                                                        the loan type; the completing AP separately
+//                                                                        earns their own Fresh/Takeover/Release pts.
+//                                         Sourced and completed by the   the AP takes whichever is higher, sourcing
+//                                         SAME AP                        (30) or completion (Fresh 30 / Takeover 50 /
+//                                                                        Release 20 / Private sale 20) — never both.
+//                                                                        In practice this only moves Release and
+//                                                                        Private sale completions (20 -> 30); Fresh
+//                                                                        and Takeover already clear 30 on their own.
+//                                         Sourced, never completed       nothing.
+//                                       There is deliberately NO filter on lead.created_at. An existing customer's
+//                                       lead record routinely predates the report window by months or years, and the
+//                                       previous version's created_at >= start-of-year filter dropped 1,229 of the
+//                                       roster's 1,966 sourced conversions (63%) — essentially the whole existing-
+//                                       customer half of every AP's sourcing. The report window is applied on the
+//                                       COMPLETION month instead, which is what the points are dated by anyway.
+//                                       Known gap: conversions that complete as a gold sale (lead.conversion_via =
+//                                       'GBS', 65 rows org-wide) can't be matched — gbs_visits has no loan_id.
 //
 // Self-sourced Cx Met / SP Cx Met / SP Visit Raised / SP Loan Completed (from the removed Double Agent role)
 // and the later "Cx Met" informational column that replaced them were both removed 2026-08-05 (third pass) —
@@ -145,6 +157,10 @@ const IDENTITY = [
 // sheet, so this is an approximation. Update by hand whenever the roster is re-pulled.
 const ROSTER_TOTAL = 99;
 
+// Flat points an AP earns for sourcing a customer whose loan completes. Also the floor an AP gets when
+// they sourced AND completed the same loan (they take the higher of sourcing vs. completion, not both).
+const SOURCING_POINTS = 30;
+
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
 // the org simply didn't populate 'Cancelled by Customer'/'customer_cancelled' text values until July 2026
 // (same adoption-lag pattern as RELEASE_VISIT_COMPLETED) — cancellation_reason_id is also basically unused
@@ -165,6 +181,17 @@ const AUTH_ID_OVERRIDE = {
 };
 
 function sqlList(arr) { return arr.map(v => `'${v}'`).join(','); }
+
+// Run a query once per chunk of ids and concatenate the rows. Used for the per-loan completion lookup,
+// which is genuinely one row per loan and so can't be aggregated away — chunking is what keeps each
+// individual request under Metabase's ~2,000-row native-query cap however far sourcing volume grows.
+async function runChunked(databaseId, ids, buildQuery, chunkSize = 500) {
+  const rows = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    rows.push(...await runQuery(databaseId, buildQuery(ids.slice(i, i + chunkSize))));
+  }
+  return rows;
+}
 
 // 2026 state-wise bank holiday calendars (source: Federal Bank's 2026 holiday list, supplied 2026-07-31),
 // restricted to the states the AP roster's cities fall in. These are on top of the Sunday/2nd-4th-Saturday
@@ -251,14 +278,15 @@ async function main() {
   const oro2AgentInList = sqlList(oro2AuthIds);
   const authIdToAgentId = new Map(agentIds.map(id => [AUTH_ID_OVERRIDE[id] || id, id]));
 
-  // agent|month -> { freshLoan, takeover, release, privateSale, raised, leadGenNew, leadGenExisting,
-  // leadsConverted, goldSale } (counts, not points)
+  // agent|month -> { freshLoan, takeover, release, privateSale, raised, sourcedOther, sourcedSelf,
+  // sourcedSelfPts, leadGenNew, leadGenExisting, leadsConverted, goldSale }. Everything here is a count
+  // except sourcedSelfPts, which is already points — the same-AP top-up has no fixed per-event value.
   const monthAgg = new Map();
   function addCount(agent, day, field, n = 1) {
     const month = day.slice(0, 7);
     if (!months.includes(month)) return;
     const key = `${agent}|${month}`;
-    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, raiserBonus: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0 };
+    const cur = monthAgg.get(key) || { freshLoan: 0, takeover: 0, release: 0, privateSale: 0, goldSale: 0, raised: 0, sourcedOther: 0, sourcedSelf: 0, sourcedSelfPts: 0, leadGenNew: 0, leadGenExisting: 0, leadsConverted: 0 };
     cur[field] += n;
     monthAgg.set(key, cur);
   }
@@ -353,45 +381,78 @@ async function main() {
     addCount(String(agent), day, 'leadsConverted', convertedCount);
   });
 
-  // Raiser bonus (see top-of-file note): find every roster AP's self-sourced/referral lead that has
-  // converted to a loan, then check Oro 2.0 for whether that loan's visit actually completed and who
-  // completed it.
-  console.log('Fetching lead.appointment_booked_by_id -> conversion_id (Quali-prod) for raiser-bonus attribution...');
-  const raiserLeadQuery = `
-    SELECT appointment_booked_by_id, conversion_id
-    FROM lead
-    WHERE appointment_booked_by_id IN (${agentIds.join(',')})
-      AND conversion_id IS NOT NULL
-      AND created_at >= '2026-01-01'
+  // Sourcing attribution (see the top-of-file note). Both sourcing paths — lead submitted, or appointment
+  // booked — unioned and deduped to the earliest sourcing AP per converted loan. Returned as one row per AP
+  // with the loan ids string_agg'd, rather than one row per lead, so this query can never approach the
+  // ~2,000-row cap however much the roster's sourcing grows.
+  console.log('Fetching sourced conversions (Quali-prod lead_submissions + lead.appointment_booked_by_id)...');
+  const sourcingQuery = `
+    WITH src AS (
+      SELECT l.conversion_id, ls.submitted_by AS ap, ls.submitted_at AS ts
+      FROM lead l JOIN lead_submissions ls ON ls.lead_id = l.id
+      WHERE ls.submitted_by IN (${agentIds.join(',')}) AND l.conversion_id IS NOT NULL
+      UNION ALL
+      SELECT l.conversion_id, l.appointment_booked_by_id AS ap, l.created_at AS ts
+      FROM lead l
+      WHERE l.appointment_booked_by_id IN (${agentIds.join(',')}) AND l.conversion_id IS NOT NULL
+    ),
+    first_src AS (
+      SELECT DISTINCT ON (conversion_id) conversion_id, ap
+      FROM src ORDER BY conversion_id, ts ASC
+    )
+    SELECT ap, string_agg(conversion_id::text, ',' ORDER BY conversion_id) AS loan_ids
+    FROM first_src GROUP BY ap
   `;
-  const raiserLeadRows = await runQuery(QUALI_DB_ID, raiserLeadQuery);
-  console.log(`  ${raiserLeadRows.length} booked-appointment/conversion rows`);
+  const sourcingRows = await runQuery(QUALI_DB_ID, sourcingQuery);
+  const sourcedLoans = new Map(); // loan_id -> the agent id that sourced it
+  sourcingRows.forEach(([ap, loanIds]) => {
+    String(loanIds).split(',').forEach(loanId => sourcedLoans.set(loanId, String(ap)));
+  });
+  console.log(`  ${sourcingRows.length} APs sourced ${sourcedLoans.size} converted loans between them`);
 
-  if (raiserLeadRows.length) {
-    const loanIds = [...new Set(raiserLeadRows.map(([, loanId]) => loanId))];
-    // DISTINCT ON picks each loan's earliest completed visit (by time) — the agent and month that closed it.
-    const loanCompletionQuery = `
-      SELECT DISTINCT ON (loan_id) loan_id, agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month
+  if (sourcedLoans.size) {
+    // DISTINCT ON picks each loan's earliest completed visit — the agent, month and visit shape that closed
+    // it. visit_type/loan_subtype come back so the same-AP case can compare sourcing points against what the
+    // completion itself was worth.
+    const loanCompletionRows = await runChunked(ORO2_DB_ID, [...sourcedLoans.keys()], ids => `
+      SELECT DISTINCT ON (loan_id) loan_id, agent_auth_id, to_char(visit_time, 'YYYY-MM') AS month,
+        visit_type, loan_subtype
       FROM visits
-      WHERE loan_id IN (${loanIds.join(',')})
+      WHERE loan_id IN (${ids.join(',')})
         AND visit_status IN ('VISIT_COMPLETED','RELEASE_VISIT_COMPLETED')
       ORDER BY loan_id, visit_time ASC
-    `;
-    const loanCompletionRows = await runQuery(ORO2_DB_ID, loanCompletionQuery);
-    console.log(`  ${loanCompletionRows.length} completed loans found for raiser-bonus check`);
-    const completionByLoan = new Map(loanCompletionRows.map(([loanId, rawAgent, month]) =>
-      [loanId, { completerAgent: authIdToAgentId.get(rawAgent) || rawAgent, month }]));
+    `);
+    console.log(`  ${loanCompletionRows.length} of ${sourcedLoans.size} sourced loans have a completed visit`);
 
-    let raiserBonusCount = 0;
-    raiserLeadRows.forEach(([rawBooker, loanId]) => {
-      const booker = String(rawBooker);
-      const completion = completionByLoan.get(loanId);
-      if (!completion) return; // loan never completed — raiser gets nothing
-      if (completion.completerAgent === booker) return; // same AP raised and completed — already scored via completion pts
-      addCount(booker, `${completion.month}-01`, 'raiserBonus', 1);
-      raiserBonusCount++;
+    // What the completion itself paid the completing AP, mirroring visitQuery's buckets above.
+    function completionPoints(visitType, loanSubtype) {
+      let pts = 0;
+      if (visitType === 'GR') pts = Math.max(pts, 20);            // release / private sale
+      if (loanSubtype === 'TAKEOVER') pts = Math.max(pts, 50);
+      else if (loanSubtype === 'FRESH_LOAN') pts = Math.max(pts, 30);
+      return pts;
+    }
+
+    let other = 0, self = 0, selfPts = 0;
+    loanCompletionRows.forEach(([loanId, rawAgent, month, visitType, loanSubtype]) => {
+      const sourcer = sourcedLoans.get(String(loanId));
+      if (!sourcer) return;
+      const completer = authIdToAgentId.get(rawAgent) || String(rawAgent);
+      const day = `${month}-01`;
+      if (completer === sourcer) {
+        // Same AP sourced and completed it — they take the higher of the two, never both. Scoring the
+        // completion in full (visitQuery already did) and topping up to SOURCING_POINTS is the same thing
+        // as max(sourcing, completion), and keeps the completion counts in the report honest.
+        addCount(sourcer, day, 'sourcedSelf', 1);
+        const topUp = Math.max(0, SOURCING_POINTS - completionPoints(visitType, loanSubtype));
+        if (topUp) { addCount(sourcer, day, 'sourcedSelfPts', topUp); selfPts += topUp; }
+        self++;
+      } else {
+        addCount(sourcer, day, 'sourcedOther', 1);
+        other++;
+      }
     });
-    console.log(`  ${raiserBonusCount} raiser-bonus events attributed (different AP completed the raiser's sourced loan)`);
+    console.log(`  attributed: ${other} completed by another AP, ${self} self-completed (${selfPts} top-up pts)`);
   }
 
   const RAW = [];
@@ -399,7 +460,7 @@ async function main() {
     months.forEach(month => {
       const a = monthAgg.get(`${agent}|${month}`);
       if (!a) return; // no activity at all this month — omit
-      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.raiserBonus, a.leadGenNew, a.leadGenExisting, a.leadsConverted]);
+      RAW.push([agent, month, a.freshLoan, a.takeover, a.release, a.privateSale, a.goldSale, a.raised, a.sourcedOther, a.sourcedSelf, a.sourcedSelfPts, a.leadGenNew, a.leadGenExisting, a.leadsConverted]);
     });
   });
   console.log(`Built ${RAW.length} agent-month rows.`);
