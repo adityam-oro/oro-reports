@@ -25,14 +25,12 @@
 //                                       handling: scoring is per visit row keyed to that row's own
 //                                       agent_auth_id, so each AP's own attempt (raised or completed) scores
 //                                       independently and correctly by construction.
-//   Lead generation IS part of the core 100pt/day score again as of 2026-08-24 (it had been removed
-//                                       2026-08-05): 2 pts per new/accepted lead, 1 pt per resubmission of a
-//                                       lead already on file, but ONLY for an AP whose leads convert at 1%+
-//                                       over the whole reporting period. The gate exists because 5 APs were
-//                                       submitting 300-1,800 leads each at 0.0-0.3% conversion; without it,
-//                                       lead points would pay pure volume. The +10 Lead Bonus below is
-//                                       unchanged and stacks on top. All of this is applied in the template —
-//                                       this script only supplies the counts.
+//   Lead generation is NOT part of the core 100pt/day score (removed 2026-08-05, see Lead Bonus below) —
+//                                       the new/existing counts are still tracked and shown in the report,
+//                                       they just don't feed totalPoints. Revisited 2026-08-24 (restoring
+//                                       lead points, then backed it back out again per the user's call to
+//                                       keep this change scoped to sourcing only) — the counts stay wired
+//                                       through in case it's revisited again.
 //   Lead Bonus                +10 pts  Added to an AP's final points/day, AFTER the core 100pt/day cap (so it
 //                                       can push a score above 100), if over the selected window the AP BOTH
 //                                       (a) submitted an average of 100+ distinct leads per month, AND
@@ -92,9 +90,7 @@
 // this roster (0 of 3,843 candidate loan_ids matched), so there's no reliable way to date it. Revisit if a
 // better link turns up.
 //
-// Bands: <50% At risk · 50-75% Needs improvement · 75-90% Good performance · >90% Star performer.
-// Recalibrated 2026-08-24: under the old 60/75/95 cutoffs, Star was mathematically unreachable — the whole
-// roster's best score all year was 92 pts/day — and 46% of APs sat in At risk.
+// Bands: <60% At risk · 60-75% Needs improvement · 75-95% Good performance · >95% Star performer.
 // New-joiner exception: an AP who is At risk and still within their first 3 months of joining (by DOJ) is
 // held out of every table/stat in the report entirely, not just re-labeled.
 //
