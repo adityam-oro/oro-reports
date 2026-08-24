@@ -196,6 +196,7 @@ __MONTH_CHECKBOXES__
         <tr><td>Bengaluru</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">12</td><td class="num">2</td><td class="num">3</td></tr>
         <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">24</td><td class="num">1</td><td class="num">13</td></tr>
         <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
+        <tr style="font-weight:650;"><td>Total</td><td class="num">3</td><td class="num">2</td><td class="num">2</td><td class="num">53</td><td class="num">4</td><td class="num">25</td></tr>
       </tbody>
     </table>
   </div>
@@ -209,6 +210,7 @@ __MONTH_CHECKBOXES__
         <tr><td>Bengaluru</td><td class="num">6</td><td class="num">4</td><td class="num">3</td><td class="num">6</td><td class="num">5</td><td class="num">0</td></tr>
         <tr><td>Hyderabad</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">28</td><td class="num">4</td><td class="num">4</td></tr>
         <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr style="font-weight:650;"><td>Total</td><td class="num">6</td><td class="num">4</td><td class="num">5</td><td class="num">60</td><td class="num">9</td><td class="num">5</td></tr>
       </tbody>
     </table>
   </div>
@@ -222,6 +224,7 @@ __MONTH_CHECKBOXES__
         <tr><td>Bengaluru</td><td class="num">11</td><td class="num">3</td><td class="num">1</td><td class="num">5</td><td class="num">4</td><td class="num">0</td></tr>
         <tr><td>Hyderabad</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">26</td><td class="num">6</td><td class="num">0</td></tr>
         <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">9</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr style="font-weight:650;"><td>Total</td><td class="num">14</td><td class="num">7</td><td class="num">4</td><td class="num">51</td><td class="num">13</td><td class="num">0</td></tr>
       </tbody>
     </table>
   </div>
@@ -235,6 +238,7 @@ __MONTH_CHECKBOXES__
         <tr><td>Bengaluru</td><td class="num">0</td><td class="num">7</td><td class="num">3</td><td class="num">9</td><td class="num">5</td><td class="num">0</td></tr>
         <tr><td>Hyderabad</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">31</td><td class="num">3</td><td class="num">0</td></tr>
         <tr><td>Pune</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">11</td><td class="num">1</td><td class="num">0</td></tr>
+        <tr style="font-weight:650;"><td>Total</td><td class="num">1</td><td class="num">9</td><td class="num">4</td><td class="num">66</td><td class="num">9</td><td class="num">0</td></tr>
       </tbody>
     </table>
   </div>
@@ -635,6 +639,18 @@ function render(){
   // Leaderboard shows everyone, including held-out APs (at risk + <3 months tenure) — they're just
   // highlighted blue instead of the usual gold "new joiner" tint, and excluded from every stat above.
   const sorted = [...aggAll].sort((a,b)=>b.ptsPerDay-a.ptsPerDay);
+  const lbTotal = sorted.reduce((s,r)=>({
+    freshLoan:s.freshLoan+r.freshLoan, takeover:s.takeover+r.takeover, release:s.release+r.release,
+    privateSale:s.privateSale+r.privateSale, goldSale:s.goldSale+r.goldSale, raised:s.raised+r.raised,
+    sourcedOther:s.sourcedOther+r.sourcedOther, sourcedSelf:s.sourcedSelf+r.sourcedSelf,
+    leadGenNew:s.leadGenNew+r.leadGenNew, leadGenExisting:s.leadGenExisting+r.leadGenExisting,
+    leadsConverted:s.leadsConverted+r.leadsConverted, bonusCount:s.bonusCount+(r.leadBonus.bonus?1:0),
+    ptsPerDaySum:s.ptsPerDaySum+r.ptsPerDay,
+  }), {freshLoan:0,takeover:0,release:0,privateSale:0,goldSale:0,raised:0,sourcedOther:0,sourcedSelf:0,leadGenNew:0,leadGenExisting:0,leadsConverted:0,bonusCount:0,ptsPerDaySum:0});
+  const lbTotalLeads = lbTotal.leadGenNew + lbTotal.leadGenExisting;
+  const lbTotalConvPct = lbTotalLeads ? (lbTotal.leadsConverted/lbTotalLeads*100) : 0;
+  const lbAvgPtsPerDay = sorted.length ? lbTotal.ptsPerDaySum/sorted.length : 0;
+
   document.getElementById('lbBody').innerHTML = sorted.map(r=>{
     const newJoiner = isNewJoiner(r.agent, refDate);
     const rowClass = r.heldOut ? 'held-out' : (newJoiner ? 'new-joiner' : '');
@@ -661,7 +677,26 @@ function render(){
       <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
     </tr>
   `;
-  }).join('');
+  }).join('') + `
+    <tr style="font-weight:650;">
+      <td>Total</td>
+      <td>—</td>
+      <td class="num">${lbTotal.freshLoan}</td>
+      <td class="num">${lbTotal.takeover}</td>
+      <td class="num">${lbTotal.release}</td>
+      <td class="num">${lbTotal.privateSale}</td>
+      <td class="num">${lbTotal.goldSale}</td>
+      <td class="num">${lbTotal.raised}</td>
+      <td class="num">${lbTotal.sourcedOther}</td>
+      <td class="num">${lbTotal.sourcedSelf}</td>
+      <td class="num">${lbTotal.leadGenNew}</td>
+      <td class="num">${lbTotal.leadGenExisting}</td>
+      <td class="num">${lbTotalConvPct.toFixed(1)}%</td>
+      <td class="num">${lbTotal.bonusCount} AP${lbTotal.bonusCount===1?'':'s'}</td>
+      <td class="num">${lbAvgPtsPerDay.toFixed(0)}</td>
+      <td>—</td>
+    </tr>
+  `;
 }
 document.querySelectorAll('#fMonth input[type=checkbox]').forEach(c=>c.addEventListener('change', render));
 render();
