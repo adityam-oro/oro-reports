@@ -287,7 +287,7 @@ __MONTH_CHECKBOXES__
   <div class="tbox">
     <table>
       <thead><tr>
-        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Visit Raised</th><th>Sourced &rarr; other AP</th><th>Sourced &rarr; self</th><th>New leads</th><th>Existing leads</th><th>Lead conv %</th><th>Lead bonus</th><th>Points/day</th><th>Band</th>
+        <th>AP</th><th>City</th><th>Fresh</th><th>Takeover</th><th>Release</th><th>Pvt sale</th><th>Gold sale</th><th>Visit Raised</th><th>Sourced</th><th>New leads</th><th>Existing leads</th><th>Lead conv %</th><th>Lead bonus</th><th>Points/day</th><th>Band</th>
       </tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
@@ -667,8 +667,7 @@ function render(){
       <td class="num">${r.privateSale}</td>
       <td class="num">${r.goldSale}</td>
       <td class="num">${r.raised}</td>
-      <td class="num">${r.sourcedOther}</td>
-      <td class="num">${r.sourcedSelf}</td>
+      <td class="num">${r.sourcedOther + r.sourcedSelf}</td>
       <td class="num">${r.leadGenNew}</td>
       <td class="num">${r.leadGenExisting}</td>
       <td class="num">${r.leadBonus.conversionPct.toFixed(1)}%</td>
@@ -687,8 +686,7 @@ function render(){
       <td class="num">${lbTotal.privateSale}</td>
       <td class="num">${lbTotal.goldSale}</td>
       <td class="num">${lbTotal.raised}</td>
-      <td class="num">${lbTotal.sourcedOther}</td>
-      <td class="num">${lbTotal.sourcedSelf}</td>
+      <td class="num">${lbTotal.sourcedOther + lbTotal.sourcedSelf}</td>
       <td class="num">${lbTotal.leadGenNew}</td>
       <td class="num">${lbTotal.leadGenExisting}</td>
       <td class="num">${lbTotalConvPct.toFixed(1)}%</td>
