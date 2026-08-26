@@ -42,6 +42,22 @@ async function runQuery(databaseId, query) {
   return json.data.rows;
 }
 
+// Metabase's /api/dataset endpoint silently caps native-query results at ~2000 rows — it does NOT error,
+// it just truncates, which is exactly how this pipeline missed every walk-in created after 2026-08-17
+// once the true row count grew past that ceiling. `query` must already end in a deterministic ORDER BY
+// (no trailing semicolon) so appending LIMIT/OFFSET per page is safe and gives a stable sort across pages.
+async function runQueryPaginated(databaseId, query, pageSize = 2000) {
+  let allRows = [];
+  let offset = 0;
+  while (true) {
+    const page = await runQuery(databaseId, `${query} LIMIT ${pageSize} OFFSET ${offset}`);
+    allRows = allRows.concat(page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allRows;
+}
+
 function chunk(arr, size) {
   const out = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -60,7 +76,7 @@ async function main() {
     WHERE wl.lead_type = 'CO_WALKIN'
     ORDER BY wl.id
   `;
-  const wl = await runQuery(ORO2_DB_ID, walkinQuery);
+  const wl = await runQueryPaginated(ORO2_DB_ID, walkinQuery.trim());
   console.log(`  ${wl.length} walk-in rows`);
 
   // Test/dummy walk-ins: dev/system submitter, or reason literally says test/testing.
