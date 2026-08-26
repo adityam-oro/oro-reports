@@ -7,6 +7,18 @@
 // data-quality gaps (e.g. ~98% missing in Chennai under one schema) and is no longer read for bucketing.
 // Also posts an MTD summary to Slack via an Incoming Webhook, if configured.
 //
+// Safety net (added after a 9-day silent-truncation incident on 2026-08-17, caused by Metabase's
+// /api/dataset endpoint capping native-query results at ~2000 rows with no error — the workflow kept
+// reporting success while quietly serving stale data the whole time):
+//   1. runQueryPaginated() pages through the main walk-in query so no single call can hit that cap.
+//   2. An independent COUNT(*) is compared against the fetched row count; a mismatch hard-fails the run.
+//   3. A freshness check hard-fails the run if the newest walk-in is more than 1 day old.
+//   4. Any failure (these two checks, or anything else) posts a distinct red Slack alert via
+//      postSlackFailureAlert(), separate from the daily digest, so a broken run is visible immediately
+//      instead of only as a GitHub Actions status nobody is watching.
+// If you ever see this workflow fail, DO NOT just re-run it and move on without reading why — the whole
+// point of these checks is that "the workflow succeeded" is no longer a substitute for "the data is right".
+//
 // Required environment variables (set as GitHub Actions secrets):
 //   METABASE_URL       e.g. https://oro.metabaseapp.com
 //   METABASE_API_KEY   an API key created in Metabase Admin > Settings > API Keys
@@ -78,6 +90,20 @@ async function main() {
   `;
   const wl = await runQueryPaginated(ORO2_DB_ID, walkinQuery.trim());
   console.log(`  ${wl.length} walk-in rows`);
+
+  // Independent count check — catches ANY future silent truncation (not just the specific ~2000-row
+  // Metabase cap this pipeline already hit once), a broken join, or a partial/failed page fetch. A
+  // mismatch here means the fetched data cannot be trusted, so this must hard-fail the run rather than
+  // silently publish incomplete data (which is exactly how the 2026-08-17 truncation went unnoticed for
+  // 9 days — the workflow kept reporting green while quietly serving stale numbers).
+  const countRows = await runQuery(ORO2_DB_ID, "SELECT COUNT(*) FROM walkin_lead WHERE lead_type = 'CO_WALKIN'");
+  const trueCount = Number(countRows[0][0]);
+  if (trueCount !== wl.length) {
+    throw new Error(
+      `Row-count mismatch: fetched ${wl.length} walk-in rows but the database currently has ${trueCount} ` +
+      `CO_WALKIN rows. Treating this as a failed run rather than publishing incomplete/stale data.`
+    );
+  }
 
   // Test/dummy walk-ins: dev/system submitter, or reason literally says test/testing.
   const TEST_IDS = new Set(wl.filter(r => {
@@ -265,6 +291,23 @@ async function main() {
   });
   console.log(`  ${WALKINS.length} real walk-ins after cleanup`);
 
+  const now = new Date();
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + istOffsetMs);
+  const todayStr = ist.toISOString().slice(0, 10);
+
+  // Freshness check — catches ANY silent failure mode (a future truncation bug, a stalled source table,
+  // a broken join upstream), not just the specific one already fixed above. Walk-ins happen daily across
+  // multiple cities, so the newest one should never be more than a day old when this runs each morning.
+  const latestDay = WALKINS.reduce((max, w) => (w.day > max ? w.day : max), '0000-00-00');
+  const daysStale = Math.round((new Date(todayStr) - new Date(latestDay)) / 86400000);
+  if (daysStale > 1) {
+    throw new Error(
+      `Freshness check failed: newest walk-in in the fetched data is from ${latestDay}, which is ` +
+      `${daysStale} days behind today (${todayStr}). Treating this as a failed run rather than publishing stale data.`
+    );
+  }
+
   const CITY_LIST = Array.from(new Set(WALKINS.map(w => w.city)));
   const OFFICE_LIST = Array.from(new Set(WALKINS.map(w => w.office)));
   const RE_NAME_LIST = Array.from(new Set(WALKINS.filter(w => w.reCallerName).map(w => w.reCallerName)));
@@ -276,9 +319,6 @@ async function main() {
     w.completedVia === 'FRESH' ? 1 : w.completedVia === 'TAKEOVER' ? 2 : 0,
   ]);
 
-  const now = new Date();
-  const istOffsetMs = 5.5 * 60 * 60 * 1000;
-  const ist = new Date(now.getTime() + istOffsetMs);
   const refreshedAt = ist.toISOString().slice(0, 16).replace('T', 'T') + ' IST';
 
   let template = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
@@ -562,7 +602,34 @@ async function postSlackSummary(WALKINS, ist) {
   console.log('Posted daily digest to Slack.');
 }
 
-main().catch(err => {
+// Distinct failure alert — separate from the daily digest, so a broken run (row-count mismatch,
+// freshness check, or any other error) pings the channel immediately instead of just going red on
+// GitHub Actions, where nobody was watching (that's how the 2026-08-17 truncation went unnoticed for
+// 9 days). Best-effort: a failure posting this must never mask or replace the original error.
+async function postSlackFailureAlert(err) {
+  const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
+  if (!SLACK_WEBHOOK_URL) return;
+  try {
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blocks: [{
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `🔴 *CO Walk-ins Report — daily refresh FAILED*\n${String(err && err.message ? err.message : err).slice(0, 500)}\n_The report was NOT updated this run — last published data may be stale. Check the workflow run: https://github.com/adityam-oro/oro-reports/actions_`,
+          },
+        }],
+      }),
+    });
+  } catch (alertErr) {
+    console.error('Also failed to post the Slack failure alert:', alertErr);
+  }
+}
+
+main().catch(async err => {
   console.error(err);
+  await postSlackFailureAlert(err);
   process.exit(1);
 });
