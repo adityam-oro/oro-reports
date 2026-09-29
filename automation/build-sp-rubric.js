@@ -104,6 +104,11 @@ const IDENTITY = [
   ["90723","Nagaraju K","Hyderabad","2026-04-09"],["90741","Praveen S","Bengaluru","2026-04-29"],["92067","Tejas Vg","Pune","2026-05-06"],
   ["92952","Sumit Rk","Pune","2026-05-06"],["93151","Ambarisha V","Bengaluru","2026-06-02"],["93448","Harshad Sa","Pune","2026-05-20"],
   ["93655","Aniketgopal S","Pune","2026-05-20"],
+  // Akula Naresh (OMA00098019, West Hyderabad), DOJ 2026-08-03 per Aditya. Took over company mobile
+  // 8072288006 from Ramavath Naga (72222), who stays on the roster through his exit — his activity
+  // ends in early Aug 2026. Naresh's only pre-DOJ row (a 2026-03-19 VISIT_CANCELLED_ANRC) isn't a
+  // scoring status, so no per-agent date filter is needed.
+  ["98019","Akula Naresh","Hyderabad","2026-08-03"],
 ];
 
 // VISIT_COMPLETED_GBS added 2026-07-31 — a completed Gold Buy-Sell customer visit (87 rows Jan-Aug 2026,
