@@ -109,6 +109,10 @@ const IDENTITY = [
   // ends in early Aug 2026. Naresh's only pre-DOJ row (a 2026-03-19 VISIT_CANCELLED_ANRC) isn't a
   // scoring status, so no per-agent date filter is needed.
   ["98019","Akula Naresh","Hyderabad","2026-08-03"],
+  // Added 2026-09-29 — HR-Active Sales Partners (Oro Money Mastersheet "Employee Master" tab, HR DOJ) who were
+  // doing visits/leads but had never been put on the roster.
+  ["75230","Amit Dattu Bhong","Pune","2025-11-15"],["94711","Akshay Bandu Swami","Pune","2026-06-09"],["96165","Baki Nagaraju","Hyderabad","2026-06-22"],
+  ["96649","Chavan Tushar Rupesh","Pune","2026-07-13"],["97696","Saurabh Balasaheb Sawant","Pune","2026-08-07"],["98815","Tejas Sandeep Zujam","Pune","2026-08-12"],
 ];
 
 // VISIT_COMPLETED_GBS added 2026-07-31 — a completed Gold Buy-Sell customer visit (87 rows Jan-Aug 2026,
@@ -117,6 +121,7 @@ const CX_MET_STATUSES = ['VISIT_COMPLETED_GL','VISIT_COMPLETED_BRL','VISIT_COMPL
 const RAISED_STATUSES = ['VISIT_COMPLETED_BRL','VISIT_COMPLETED_GL','VISIT_CANCELLED_CC'];
 
 function sqlList(arr) { return arr.map(v => `'${v}'`).join(','); }
+function chunk(arr, size) { const out = []; for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size)); return out; }
 
 // 2026 state-wise bank holiday calendars (source: Federal Bank's 2026 holiday list, supplied 2026-07-31).
 // Only Karnataka/Telangana/Maharashtra matter for this roster's Tier-1 cities (Bengaluru/Hyderabad/Pune).
@@ -273,19 +278,30 @@ async function main() {
   //      pending — 100% of GOLD_STORED loans checked have both orocorp_approved_at and loan_start_date set.
   // This needs two queries across two databases (Quali-prod has sales_visit/lead; Oro 2.0 has the actual
   // `loans` table with its status/created_at) since Metabase can't join across databases in one query.
-  console.log('Fetching raised-visit → lead.conversion_id pairs (Quali-prod), aggregated per agent+loan...');
-  const raisedConversionQuery = `
+  // Fixed 2026-09-30: this query is grouped by agent+conversion_id (not agent+month), so its row count
+  // is bounded by total distinct raised-loans per agent SINCE JANUARY, all-time — unlike capQuery above
+  // (bounded by agents x months, which stays flat). That total only grows as the year and the roster
+  // grow, and it silently crossed the 2,000-row truncation cap on 2026-09-28 (roster had grown to 66
+  // and 9 months of data had accumulated since the 2026-08-19 fix, which was only tested against ~59
+  // agents x ~7 months). Batching by agent keeps each call's row count bounded by a fixed subset of the
+  // roster instead of the whole thing — correctness is exact (the GROUP BY key is per-agent, so splitting
+  // by agent never needs to merge/re-aggregate across batches) — but this is a stopgap, not a permanent
+  // fix: the per-batch row count still grows every month, so BATCH_SIZE will need shrinking again once
+  // it re-approaches 2,000. Run in parallel so this doesn't add wall-clock time over the single-query form.
+  console.log('Fetching raised-visit → lead.conversion_id pairs (Quali-prod), aggregated per agent+loan, batched by agent...');
+  const BATCH_SIZE = 15;
+  const agentBatches = chunk(agentIds, BATCH_SIZE);
+  const raisedConversionRows = (await Promise.all(agentBatches.map(batch => runQuery(QUALI_DB_ID, `
     SELECT sv.agent_auth_id, l.conversion_id, min(sv.visit_time)::date AS earliest_raised_visit_date
     FROM sales_visit sv
     JOIN lead l ON l.id = sv.lead_id
-    WHERE sv.agent_auth_id IN (${agentInList})
+    WHERE sv.agent_auth_id IN (${sqlList(batch)})
       AND sv.visit_time >= '2026-01-01'
       AND sv.status IN (${sqlList(RAISED_STATUSES)})
       AND l.conversion_id IS NOT NULL
     GROUP BY sv.agent_auth_id, l.conversion_id
-  `;
-  const raisedConversionRows = await runQuery(QUALI_DB_ID, raisedConversionQuery);
-  console.log(`  ${raisedConversionRows.length} agent-loan pairs`);
+  `)))).flat();
+  console.log(`  ${raisedConversionRows.length} agent-loan pairs (${agentBatches.length} batches of up to ${BATCH_SIZE} agents)`);
 
   const EXCLUDED_LOAN_STATUSES = ['OROCORP_REJECTED', 'BRL_CANCELLED'];
   let correctedLoansByAgentMonth = new Map();
