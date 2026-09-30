@@ -74,8 +74,9 @@ async function runQuery(databaseId, query) {
 }
 
 // [agent_auth_id, name, city, doj] — Bengaluru/Hyderabad/Pune, no tenure minimum, as of 2026-07-23.
-// Chennai's Gowtham B (82483) is deliberately included so any future re-inclusion of Chennai only
-// requires adding 'Chennai' back to CITIES in the template, not re-deriving the roster.
+// Only partners Active in HR today are listed (source: Oro Money Mastersheet "Employee Master" tab) —
+// anyone who has exited is removed outright, history included, per Aditya 2026-09-30. Territory Managers
+// (Assistant/Associate, Ops or Sales) are never part of this rubric, even if they log sales visits.
 // doj resolved 2026-08-01 by matching name (+ city where ambiguous) against the full HR export Aditya
 // supplied, then corrected/confirmed by Aditya directly: Kembhasaram Pavan Kumar (33799) = ORO00546
 // Pavan Kumar, DOJ 2024-02-19. Devaraju J was a duplicate — 77107 and 84332 were the same real person
@@ -86,33 +87,34 @@ const IDENTITY = [
   ["2525","Sridhar S","Bengaluru","2021-12-02"],["5537","Ramachari Nv","Bengaluru","2022-07-13"],["33792","Vuda Narayana Rao","Hyderabad","2024-02-09"],
   ["33799","Kembhasaram Pavan Kumar","Hyderabad","2024-02-19"],["43896","Nagarjuna N","Bengaluru","2024-10-01"],["46963","Anugula Pranith Kumar Reddy","Hyderabad","2024-11-16"],
   ["47546","Ganta Ayyappa Swamy","Hyderabad","2024-12-09"],["47917","Madapa Anil","Hyderabad","2025-01-02"],["50323","Angothu Narendar","Hyderabad","2025-01-27"],
-  ["52077","Gummadi Ramesh","Hyderabad","2025-01-28"],["53219","Sreedhar Kamitin","Hyderabad","2025-02-03"],["57102","M Manigandan","Bengaluru","2025-04-12"],
+  ["52077","Gummadi Ramesh","Hyderabad","2025-01-28"],
   ["60846","Pakhare Yuvraj Balasaheb","Pune","2025-05-22"],["63747","Guguloth Venkatesh","Hyderabad","2025-06-23"],["63751","Ramagiri Sunil","Hyderabad","2025-05-07"],
   ["63754","Tanneeru Vijay Kumar","Hyderabad","2025-06-23"],["63986","Bitla Naresh","Hyderabad","2025-06-12"],["64250","Shaik Sajid Ali","Hyderabad","2025-06-23"],
   ["64382","Paspulla Karthik","Hyderabad","2025-06-26"],["65516","Sanjeev P","Hyderabad","2025-07-14"],["66203","Imran S","Bengaluru","2025-07-01"],
   ["66789","Kashireddy Uday Kiran Reddy","Hyderabad","2025-07-21"],["66790","Bijja Vijaya Kumar","Hyderabad","2025-07-15"],["68968","Srimalla Naresh","Hyderabad","2025-08-07"],
   ["70462","Medida Praveen Kumar","Hyderabad","2024-05-02"],["72083","Chinthalathadem Sai Kiran","Hyderabad","2025-10-07"],["72107","Tejas V","Bengaluru","2025-10-06"],
-  ["72222","Ramavath Naga","Hyderabad","2025-10-06"],["72503","Nanjunda F Talwar","Bengaluru","2025-10-09"],["73112","Arun Kumar","Bengaluru","2025-10-14"],
-  ["73286","Pavan Kumar S","Bengaluru","2025-10-06"],["73462","Nandisha A N","Bengaluru","2025-09-26"],["73897","Sarvesh Manoj Dalu","Pune","2025-10-28"],
-  ["76922","Vaibhav Tukaram Shirure","Pune","2025-12-01"],["77098","Tarun Prem Khemlani","Hyderabad","2025-11-17"],
+  ["72503","Nanjunda F Talwar","Bengaluru","2025-10-09"],["73112","Arun Kumar","Bengaluru","2025-10-14"],
+  ["73286","Pavan Kumar S","Bengaluru","2025-10-06"],["73462","Nandisha A N","Bengaluru","2025-09-26"],
+  ["77098","Tarun Prem Khemlani","Hyderabad","2025-11-17"],
   ["77431","Banda Sampath Kumar","Hyderabad","2025-11-17"],["77460","Shaik Khaja Mohiddin","Hyderabad","2025-11-17"],["77463","Bankh Srikanth Reddy","Hyderabad","2025-12-01"],
-  ["77467","Chillukamari Sridhar","Hyderabad","2025-11-17"],["77470","Yerukala Uday Kiran","Hyderabad","2025-11-17"],["77477","Banapuram Venkata Sai","Hyderabad","2025-11-20"],
+  ["77467","Chillukamari Sridhar","Hyderabad","2025-11-17"],["77470","Yerukala Uday Kiran","Hyderabad","2025-11-17"],
   ["77480","Pavan Kumar Reddy M","Bengaluru","2025-11-10"],["77587","Kashif Khan","Bengaluru","2025-11-10"],["77616","Ajmal Khan","Bengaluru","2025-11-10"],
   ["78233","Jonak Vamshi","Hyderabad","2025-12-09"],["78493","Tumalapalli Chandrashekar","Hyderabad","2025-11-17"],["82065","Swapnil Tonde","Pune","2026-01-08"],
-  ["82483","Gowtham B","Chennai","2026-01-22"],["84332","Devaraju J","Hyderabad","2025-11-18"],
-  ["84333","Gerapramod K","Hyderabad","2026-02-12"],["89925","Nagaraja C","Bengaluru","2026-03-31"],["90721","Nikhil M","Hyderabad","2026-02-24"],
-  ["90723","Nagaraju K","Hyderabad","2026-04-09"],["90741","Praveen S","Bengaluru","2026-04-29"],["92067","Tejas Vg","Pune","2026-05-06"],
+  ["84332","Devaraju J","Hyderabad","2025-11-18"],
+  ["90721","Nikhil M","Hyderabad","2026-02-24"],
+  ["90741","Praveen S","Bengaluru","2026-04-29"],["92067","Tejas Vg","Pune","2026-05-06"],
   ["92952","Sumit Rk","Pune","2026-05-06"],["93151","Ambarisha V","Bengaluru","2026-06-02"],["93448","Harshad Sa","Pune","2026-05-20"],
-  ["93655","Aniketgopal S","Pune","2026-05-20"],
-  // Akula Naresh (OMA00098019, West Hyderabad), DOJ 2026-08-03 per Aditya. Took over company mobile
-  // 8072288006 from Ramavath Naga (72222), who stays on the roster through his exit — his activity
-  // ends in early Aug 2026. Naresh's only pre-DOJ row (a 2026-03-19 VISIT_CANCELLED_ANRC) isn't a
-  // scoring status, so no per-agent date filter is needed.
+  
+  // Akula Naresh (OMA00098019, West Hyderabad), DOJ 2026-08-03 per Aditya. His only pre-DOJ row (a
+  // 2026-03-19 VISIT_CANCELLED_ANRC) isn't a scoring status, so no per-agent date filter is needed.
   ["98019","Akula Naresh","Hyderabad","2026-08-03"],
   // Added 2026-09-29 — HR-Active Sales Partners (Oro Money Mastersheet "Employee Master" tab, HR DOJ) who were
   // doing visits/leads but had never been put on the roster.
   ["75230","Amit Dattu Bhong","Pune","2025-11-15"],["94711","Akshay Bandu Swami","Pune","2026-06-09"],["96165","Baki Nagaraju","Hyderabad","2026-06-22"],
   ["96649","Chavan Tushar Rupesh","Pune","2026-07-13"],["97696","Saurabh Balasaheb Sawant","Pune","2026-08-07"],["98815","Tejas Sandeep Zujam","Pune","2026-08-12"],
+  // Gugulothu Naresh: HR lists him as Appraisal Partner, but his work since Jun 2026 is all SP (visits/leads,
+  // no completed appraisals) — scored as an SP per Aditya, 2026-09-30.
+  ["76996","Gugulothu Naresh","Hyderabad","2025-11-17"],
 ];
 
 // VISIT_COMPLETED_GBS added 2026-07-31 — a completed Gold Buy-Sell customer visit (87 rows Jan-Aug 2026,
