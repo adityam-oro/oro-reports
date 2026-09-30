@@ -96,11 +96,9 @@
 //
 // Roster: active Appraisal Partners / Senior Appraisal Partners / Appraisal Leads / Appraisal Trainees in
 // Chennai, Bengaluru, Hyderabad, and Pune only — Vijayawada/Guntur/Warangal/Karimnagar were dropped
-// 2026-08-05 (see note above IDENTITY). 89 of an estimated 99 active people in that scope (ROSTER_TOTAL
-// below) are resolved to their agent_auth_id via the `users` table (Oro 2.0). The rest could not be
-// resolved (mostly 2025/2026 joiners not yet tagged with an appraisal role in that table, or people promoted
-// to a managerial role) — hardcoded below, update by hand as more get resolved, and update ROSTER_TOTAL
-// whenever a fresh HR export changes the active headcount.
+// 2026-08-05 (see note above IDENTITY). Only partners Active in HR today (Oro Money Mastersheet,
+// "Employee Master" tab) are listed, matched to Oro 2.0 by Orocorp email. The report footer shows how many of them
+// did at least one Fresh/Takeover loan in the selected months (the rest are typically still in training).
 // Added 2026-07-31: Sandeep Fulchand Lokhande (id 82227) — Oro 2.0's role_name/HR "Office Staff" tag was
 // stale (his role recently changed to AP per the user); confirmed via 236 real GR/release visits Feb-Jul 2026.
 // Cx escalations and recovery-case handling are NOT yet scored — noted in the report as a future addition.
@@ -162,11 +160,6 @@ const IDENTITY = [
 ["97704","Ponna Raghuveer","Hyderabad","Appraisal Partner","2026-06-20"],["97793","Ishwar Balu Shinde","Pune","Appraisal Partner","2026-06-29"],["98072","Shivam Sunil Mundlik","Pune","Appraisal Partner","2026-07-21"],["98836","Thirunathan Thirupathi","Chennai","Appraisal Partner","2026-08-05"],
 ];
 
-// Total active APs on the latest HR export (135 as of 2026-07-28), MINUS an estimated 36 in the four
-// removed cities (Vijayawada/Guntur/Warangal/Karimnagar) — that's the resolved-in-IDENTITY count for those
-// cities before the 2026-08-05 scope cut; the unresolved remainder wasn't split by city in the original HR
-// sheet, so this is an approximation. Update by hand whenever the roster is re-pulled.
-const ROSTER_TOTAL = 99;
 
 // Fixed 2026-07-31: cancellation_reason (the old signal) was scoring ~0 for every AP for Jan-Jun because
 // the org simply didn't populate 'Cancelled by Customer'/'customer_cancelled' text values until July 2026
@@ -485,8 +478,6 @@ async function main() {
   template = template
     .replace('__MONTH_CHECKBOXES__', monthCheckboxes)
     .replace('__STATUS_LINE__', statusLine)
-    .replace('__ROSTER_RESOLVED__', String(IDENTITY.length))
-    .replace('__ROSTER_TOTAL__', String(ROSTER_TOTAL))
     .replace('__RAW_DATA__', JSON.stringify(RAW))
     .replace('__IDENTITY_DATA__', JSON.stringify(IDENTITY))
     .replace('__WD_DATA__', JSON.stringify(WD))

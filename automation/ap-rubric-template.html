@@ -303,7 +303,7 @@ __MONTH_CHECKBOXES__
 
 <footer>
   <div class="wrap">
-    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Sourcing counts a customer once, credited to the first partner who either submitted the lead or booked the visit, and is dated by the month the loan's visit completed &mdash; not by when the customer first entered the system, so customers already on file count the same as brand-new ones. Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. Roster: __ROSTER_RESOLVED__ of __ROSTER_TOTAL__ active APs resolved in Chennai/Bengaluru/Hyderabad/Pune (Vijayawada/Guntur/Warangal/Karimnagar dropped 2026-08-05 — those APs did a hybrid appraisal+sales-visit role this report no longer tracks); the rest will be added as they're matched. Cx escalations / recovery cases are tracked but not yet scored.
+    Data source: live from Metabase (Oro 2.0 <code>visits</code>/<code>gbs_visits</code>, Quali-prod <code>lead</code>/<code>lead_submissions</code>). Sourcing counts a customer once, credited to the first partner who either submitted the lead or booked the visit, and is dated by the month the loan's visit completed &mdash; not by when the customer first entered the system, so customers already on file count the same as brand-new ones. Lead generation does not feed the core score directly — it only counts each distinct submitted lead once (deduped by lead_id, not by submission attempt, across all lead origins) toward the +10 Lead Bonus, which requires an average of 100+ distinct leads/month and 2%+ of them converting to a loan, over the selected window. New-joiner exception: At-risk APs within their first 3 months (measured against the end of the selected window, not today's date) are excluded from every stat and chart but shown, highlighted blue, in the leaderboard; others within 3 months are shown and highlighted gold. <span id="activeLine"></span> Cx escalations / recovery cases are tracked but not yet scored.
     <br><br>
     Last refreshed: __REFRESHED_AT__.
   </div>
@@ -460,7 +460,7 @@ function aggregateAgents(rows, refDate, monthsInWindow, cityFilter){
   const present = new Set(results.map(a => a.agent));
   const zeroLeadBonus = leadBonusFor(0, 0, numMonths);
   const backfilled = IDENTITY
-    .filter(([id,,city]) => !present.has(id) && (cityFilter === undefined || cityFilter === 'All' || city === cityFilter) && tenureDays(id, refDate) < 90)
+    .filter(([id,,city]) => !present.has(id) && (cityFilter === undefined || cityFilter === 'All' || city === cityFilter) && tenureDays(id, refDate) >= 0 && tenureDays(id, refDate) < 90)
     .map(([id,,city]) => ({
       agent:id, city, freshLoan:0, takeover:0, release:0, privateSale:0, goldSale:0, raised:0, sourcedOther:0, sourcedSelf:0,
       leadGenNew:0, leadGenExisting:0, leadsConverted:0, rawPts:0, cappedPts:0, wd:0,
@@ -551,6 +551,8 @@ function render(){
   const aggAll = aggregateAgents(rows, refDate, months, activeCity);
   const agg = aggAll.filter(a => !a.heldOut);
   const heldOutList = aggAll.filter(a => a.heldOut);
+  const rosterInView = IDENTITY.filter(([, , c]) => activeCity === 'All' || c === activeCity).length;
+  document.getElementById('activeLine').textContent = `Active APs: ${aggAll.filter(a => a.freshLoan + a.takeover > 0).length} of ${rosterInView} did at least one Fresh/Takeover loan in the selected months.`;
 
   const n = agg.length;
   const bandCounts = {r:0,w:0,n:0,g:0};
@@ -673,7 +675,7 @@ function render(){
       <td class="num">${r.leadBonus.conversionPct.toFixed(1)}%</td>
       <td class="num">${r.leadBonus.bonus ? '+' + r.leadBonus.bonus : '—'}</td>
       <td class="num">${r.ptsPerDay.toFixed(0)}</td>
-      <td><span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span></td>
+      <td>${r.heldOut ? '<span class="chip">New joiner</span>' : `<span class="chip ${r.bandKey}">${BAND_LABEL[r.bandKey]}</span>`}</td>
     </tr>
   `;
   }).join('') + `
