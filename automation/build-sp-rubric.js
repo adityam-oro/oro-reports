@@ -310,12 +310,13 @@ async function main() {
   if (raisedConversionRows.length) {
     const conversionIds = [...new Set(raisedConversionRows.map(([, convId]) => convId))];
     console.log(`Fetching loan status/created_at (Oro 2.0) for ${conversionIds.length} distinct loans...`);
-    const loanStatusQuery = `
+    // loans.id is unique, so each chunk returns at most its own size in rows — chunking by id keeps every
+    // call under the 2,000-row cap no matter how many distinct loans accumulate (unlike the agent batching above).
+    const loanStatusRows = (await Promise.all(chunk(conversionIds, 500).map(ids => runQuery(ORO2_DB_ID, `
       SELECT id AS conversion_id, created_at::date AS loan_created_date, loan_status
       FROM loans
-      WHERE id IN (${conversionIds.join(',')})
-    `;
-    const loanStatusRows = await runQuery(ORO2_DB_ID, loanStatusQuery);
+      WHERE id IN (${ids.join(',')})
+    `)))).flat();
     console.log(`  ${loanStatusRows.length} loan records`);
     const loanById = new Map(loanStatusRows.map(([id, created, status]) => [id, { created, status }]));
 
