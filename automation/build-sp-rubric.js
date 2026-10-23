@@ -45,7 +45,37 @@ if (!METABASE_URL || !METABASE_API_KEY || !QUALI_DB_ID || !ORO2_DB_ID) {
   process.exit(1);
 }
 
+class TruncatedError extends Error {}
+
+// Retries network errors and 5xx/429 only; truncation and other 4xx (bad SQL, bad key) fail straight away.
 async function runQuery(databaseId, query) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await runQueryOnce(databaseId, query); }
+    catch (e) {
+      const status = (/Metabase query failed \((\d+)\)/.exec(e.message) || [])[1];
+      const transient = !(e instanceof TruncatedError) && !/Unexpected Metabase response/.test(e.message) &&
+        (!status || status === '429' || status.startsWith('5'));
+      if (!transient || attempt >= 4) throw e;
+      console.log(`  Metabase call failed (${e.message.slice(0, 120)}), retry ${attempt}/3...`);
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+  }
+}
+
+// Runs buildSql(keys); if Metabase truncates the result, halves the key list and retries each half.
+// Rows are per-key, so halves never need merging, and there is no batch size to tune as data grows.
+async function runSplit(databaseId, keys, buildSql) {
+  try { return await runQuery(databaseId, buildSql(keys)); }
+  catch (e) {
+    if (!(e instanceof TruncatedError) || keys.length < 2) throw e;
+    const mid = Math.ceil(keys.length / 2);
+    console.log(`  truncated at ${keys.length} keys, splitting ${mid}/${keys.length - mid}`);
+    const parts = await Promise.all([runSplit(databaseId, keys.slice(0, mid), buildSql), runSplit(databaseId, keys.slice(mid), buildSql)]);
+    return parts.flat();
+  }
+}
+
+async function runQueryOnce(databaseId, query) {
   const res = await fetch(`${METABASE_URL}/api/dataset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': METABASE_API_KEY },
@@ -68,7 +98,7 @@ async function runQuery(databaseId, query) {
   // query, fail loudly instead of silently building a report on partial data (same guard as the AP
   // script, added after the AP side hit this exact failure on 2026-08-09).
   if (json.data.rows_truncated) {
-    throw new Error(`Metabase truncated this query's results (rows_truncated=${json.data.rows_truncated}) — query needs to aggregate further, not just add a LIMIT. Query:\n${query.slice(0, 300)}`);
+    throw new TruncatedError(`Metabase truncated this query's results (rows_truncated=${json.data.rows_truncated}) — query needs to aggregate further, not just add a LIMIT. Query:\n${query.slice(0, 300)}`);
   }
   return json.data.rows;
 }
@@ -206,7 +236,7 @@ async function main() {
   // This single query now also folds in what used to be a separate lead_submissions query (leadQuery),
   // since both need the same per-day join to compute the capped effort score correctly.
   console.log(`Fetching sales_visit + lead_submissions for ${agentIds.length} SPs, ${months[0]} through ${currentMonthKey}...`);
-  const capQuery = `
+  const capQuery = agentInList => `
     WITH visit_day AS (
       SELECT sv.agent_auth_id, sv.visit_time::date AS day,
         count(*) FILTER (WHERE sv.status IN (${sqlList(CX_MET_STATUSES)})) AS cx_met,
@@ -263,7 +293,7 @@ async function main() {
     FROM combined
     GROUP BY agent_auth_id, month
   `;
-  const capRows = await runQuery(QUALI_DB_ID, capQuery);
+  const capRows = await runSplit(QUALI_DB_ID, agentIds, ids => capQuery(sqlList(ids)));
   console.log(`  ${capRows.length} agent-month rows`);
 
   // Loan completion, fixed 2026-08-19 after two separate issues were found in the same-day review:
@@ -287,13 +317,10 @@ async function main() {
   // and 9 months of data had accumulated since the 2026-08-19 fix, which was only tested against ~59
   // agents x ~7 months). Batching by agent keeps each call's row count bounded by a fixed subset of the
   // roster instead of the whole thing — correctness is exact (the GROUP BY key is per-agent, so splitting
-  // by agent never needs to merge/re-aggregate across batches) — but this is a stopgap, not a permanent
-  // fix: the per-batch row count still grows every month, so BATCH_SIZE will need shrinking again once
-  // it re-approaches 2,000. Run in parallel so this doesn't add wall-clock time over the single-query form.
-  console.log('Fetching raised-visit → lead.conversion_id pairs (Quali-prod), aggregated per agent+loan, batched by agent...');
-  const BATCH_SIZE = 15;
-  const agentBatches = chunk(agentIds, BATCH_SIZE);
-  const raisedConversionRows = (await Promise.all(agentBatches.map(batch => runQuery(QUALI_DB_ID, `
+  // by agent never needs to merge/re-aggregate across batches). runSplit halves the agent list whenever a
+  // call is truncated, so the batch size sizes itself as data grows.
+  console.log('Fetching raised-visit → lead.conversion_id pairs (Quali-prod), aggregated per agent+loan...');
+  const raisedConversionRows = await runSplit(QUALI_DB_ID, agentIds, batch => `
     SELECT sv.agent_auth_id, l.conversion_id, min(sv.visit_time)::date AS earliest_raised_visit_date
     FROM sales_visit sv
     JOIN lead l ON l.id = sv.lead_id
@@ -302,8 +329,8 @@ async function main() {
       AND sv.status IN (${sqlList(RAISED_STATUSES)})
       AND l.conversion_id IS NOT NULL
     GROUP BY sv.agent_auth_id, l.conversion_id
-  `)))).flat();
-  console.log(`  ${raisedConversionRows.length} agent-loan pairs (${agentBatches.length} batches of up to ${BATCH_SIZE} agents)`);
+  `);
+  console.log(`  ${raisedConversionRows.length} agent-loan pairs`);
 
   const EXCLUDED_LOAN_STATUSES = ['OROCORP_REJECTED', 'BRL_CANCELLED'];
   let correctedLoansByAgentMonth = new Map();
@@ -312,10 +339,10 @@ async function main() {
     console.log(`Fetching loan status/created_at (Oro 2.0) for ${conversionIds.length} distinct loans...`);
     // loans.id is unique, so each chunk returns at most its own size in rows — chunking by id keeps every
     // call under the 2,000-row cap no matter how many distinct loans accumulate (unlike the agent batching above).
-    const loanStatusRows = (await Promise.all(chunk(conversionIds, 500).map(ids => runQuery(ORO2_DB_ID, `
+    const loanStatusRows = (await Promise.all(chunk(conversionIds, 500).map(ids => runSplit(ORO2_DB_ID, ids, part => `
       SELECT id AS conversion_id, created_at::date AS loan_created_date, loan_status
       FROM loans
-      WHERE id IN (${ids.join(',')})
+      WHERE id IN (${part.join(',')})
     `)))).flat();
     console.log(`  ${loanStatusRows.length} loan records`);
     const loanById = new Map(loanStatusRows.map(([id, created, status]) => [id, { created, status }]));
