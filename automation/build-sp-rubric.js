@@ -83,7 +83,9 @@ async function runQueryOnce(databaseId, query) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Metabase query failed (${res.status}): ${text.slice(0, 500)}`);
+    let reason = text.slice(-500);
+    try { const b = JSON.parse(text); reason = String(b.error || b.message || reason).slice(0, 500); } catch {}
+    throw new Error(`Metabase query failed (${res.status}): ${reason}`);
   }
   const json = await res.json();
   if (!json.data || !json.data.rows) throw new Error(`Unexpected Metabase response shape: ${JSON.stringify(json).slice(0, 300)}`);
